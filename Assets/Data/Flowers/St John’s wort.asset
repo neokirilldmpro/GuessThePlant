@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aaa358278caf09d48a4fbbfd9bcb9f22, type: 3}
+  m_Name: "St John\u2019s wort"
+  m_EditorClassIdentifier: Assembly-CSharp::FlowerData
+  id: 71
+  nameRu: "\u0417\u0432\u0435\u0440\u043E\u0431\u043E\u0439 (\u0446\u0432\u0435\u0442\u043E\u043A) "
+  nameEn: "St John\u2019s wort"
+  difficulty: 2
+  image: {fileID: 21300000, guid: da1a548de12ac174694e57b1e7e01059, type: 3}
