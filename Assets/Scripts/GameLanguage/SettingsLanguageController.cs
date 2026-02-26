@@ -12,6 +12,7 @@ public class SettingsLanguageController : MonoBehaviour
     [SerializeField] private TMP_Text languageLabelText; // Подпись "Язык / Language"
     [SerializeField] private TMP_Text languageValueText; // Значение "Русский / English"
     [SerializeField] private TMP_Text toggleButtonText;  // Текст кнопки "Сменить / Toggle"
+    [SerializeField] private TMP_Text VolumeMusic; // Текст громкости
 
     [Header("Optional Main Menu Labels")] // Можно обновлять и главное меню сразу
     [SerializeField] private TMP_Text playButtonText;     // Кнопка "Играть / Play"
@@ -57,13 +58,18 @@ public class SettingsLanguageController : MonoBehaviour
             settingsTitleText.text = en ? "Settings" : "Настройки";
 
         if (languageLabelText != null)
-            languageLabelText.text = en ? "Language" : "Язык";
+            languageLabelText.text = en ? "Language:" : "Язык:";
 
         if (languageValueText != null)
             languageValueText.text = en ? "English" : "Русский";
 
         if (toggleButtonText != null)
             toggleButtonText.text = en ? "Change" : "Сменить";
+
+        if (VolumeMusic != null)
+            VolumeMusic.text = en ? "Music volume:" : "Громкость музыки:";
+
+
 
         // ===== Main menu =====
         if (playButtonText != null)

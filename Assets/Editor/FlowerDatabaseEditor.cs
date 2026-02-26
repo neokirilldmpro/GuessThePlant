@@ -26,6 +26,8 @@ public class FlowerDatabaseEditor : Editor
         // Получаем ссылку на редактируемый FlowerDatabase
         FlowerDatabase database = (FlowerDatabase)target;
 
+        // ===== ОСНОВНЫЕ КНОПКИ =====
+
         // Кнопка: автоматически собрать все FlowerData из проекта
         if (GUILayout.Button("Auto Fill From All FlowerData In Project", GUILayout.Height(32)))
         {
@@ -43,59 +45,64 @@ public class FlowerDatabaseEditor : Editor
         {
             RemoveNullEntries(database);
         }
+
+        // Отступ перед блоком статистики
+        EditorGUILayout.Space(8);
+
+        // ===== СТАТИСТИКА И ВАЛИДАЦИЯ =====
+
+        EditorGUILayout.LabelField("Database Tools", EditorStyles.boldLabel);
+
+        // Кнопка: вывести статистику по сложностям в Console
+        if (GUILayout.Button("Log Difficulty Stats", GUILayout.Height(26)))
+        {
+            LogDifficultyStats(database);
+        }
+
+        // Кнопка: проверить базу на типичные ошибки
+        if (GUILayout.Button("Validate Database (IDs / Names / Images)", GUILayout.Height(26)))
+        {
+            ValidateDatabase(database);
+        }
+
+        // Отступ
+        EditorGUILayout.Space(8);
+
+        // ===== БЫСТРЫЙ ПРЕДПРОСМОТР СТАТИСТИКИ ПРЯМО В ИНСПЕКТОРЕ =====
+        // Этот блок просто показывает цифры без нажатия кнопки (удобно)
+        DrawStatsPreview(database);
     }
 
     // Автозаполнение базы всеми FlowerData из проекта
     private static void AutoFillDatabase(FlowerDatabase database)
     {
-        // Проверка на null (на всякий случай)
         if (database == null)
         {
             Debug.LogError("[FlowerDatabaseEditor] Database is null.");
             return;
         }
 
-        // Ищем GUID всех ассетов типа FlowerData во всём проекте
         string[] guids = AssetDatabase.FindAssets("t:FlowerData");
-
-        // Временный список для найденных элементов
         List<FlowerData> found = new List<FlowerData>();
 
-        // Проходим по всем найденным GUID
         for (int i = 0; i < guids.Length; i++)
         {
-            // Получаем путь ассета по GUID
             string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-
-            // Загружаем ассет как FlowerData
             FlowerData data = AssetDatabase.LoadAssetAtPath<FlowerData>(path);
 
-            // Если загрузка успешна — добавляем в список
             if (data != null)
             {
                 found.Add(data);
             }
         }
 
-        // Убираем возможные дубликаты ссылок (редко, но пусть будет защита)
         found = found.Distinct().ToList();
-
-        // Сортируем по ID (null в конец, но null мы уже не добавляем)
         found = found.OrderBy(x => x != null ? x.Id : int.MaxValue).ToList();
 
-        // ВАЖНО: записываем список в FlowerDatabase
-        // Ниже зависит от того, есть ли у тебя публичное поле/свойство.
-        // Если поле flowers public/serialized, и есть свойство-обёртка — используем метод доступа.
-        // Смотри комментарий ниже.
         AssignListToDatabase(database, found);
 
-        // Помечаем ассет как изменённый (чтобы Unity сохранил его)
         EditorUtility.SetDirty(database);
-
-        // Сохраняем изменения в ассетах
         AssetDatabase.SaveAssets();
-
-        // Обновляем базу ассетов
         AssetDatabase.Refresh();
 
         Debug.Log($"[FlowerDatabaseEditor] AutoFill complete. Added {found.Count} FlowerData assets to database '{database.name}'.");
@@ -110,19 +117,15 @@ public class FlowerDatabaseEditor : Editor
             return;
         }
 
-        // Получаем текущий список
         List<FlowerData> current = GetDatabaseListCopy(database);
 
-        // Сортируем по ID
         current = current
-            .Where(x => x != null) // Убираем null сразу
-            .OrderBy(x => x.Id)    // Сортируем по id
+            .Where(x => x != null)
+            .OrderBy(x => x.Id)
             .ToList();
 
-        // Записываем обратно
         AssignListToDatabase(database, current);
 
-        // Сохраняем
         EditorUtility.SetDirty(database);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -139,20 +142,14 @@ public class FlowerDatabaseEditor : Editor
             return;
         }
 
-        // Получаем текущий список
         List<FlowerData> current = GetDatabaseListCopy(database);
 
-        int before = current.Count; // Количество до очистки
-
-        // Убираем null
+        int before = current.Count;
         current = current.Where(x => x != null).ToList();
+        int removed = before - current.Count;
 
-        int removed = before - current.Count; // Сколько удалили
-
-        // Записываем обратно
         AssignListToDatabase(database, current);
 
-        // Сохраняем
         EditorUtility.SetDirty(database);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -160,32 +157,134 @@ public class FlowerDatabaseEditor : Editor
         Debug.Log($"[FlowerDatabaseEditor] Removed null entries: {removed}. Remaining: {current.Count}");
     }
 
+    // ===== НОВОЕ: ЛОГ СТАТИСТИКИ =====
+
+    private static void LogDifficultyStats(FlowerDatabase database)
+    {
+        if (database == null)
+        {
+            Debug.LogError("[FlowerDatabaseEditor] Database is null.");
+            return;
+        }
+
+        // Получаем статистику из FlowerDatabase (runtime-логика)
+        FlowerDatabase.DifficultyStats s = database.GetDifficultyStats();
+
+        // Получаем дубли ID
+        List<int> duplicates = database.GetDuplicateIds();
+
+        string duplicatesText = (duplicates == null || duplicates.Count == 0)
+            ? "none"
+            : string.Join(", ", duplicates);
+
+        Debug.Log(
+            $"[FlowerDatabaseEditor] Stats for '{database.name}': " +
+            $"Total={s.total}, Easy={s.easy}, Medium={s.medium}, Hard={s.hard}, MaxHard={s.maxHard}, Nulls={s.nullItems}, DuplicateIDs={duplicatesText}"
+        );
+    }
+
+    // ===== НОВОЕ: ВАЛИДАЦИЯ =====
+
+    private static void ValidateDatabase(FlowerDatabase database)
+    {
+        if (database == null)
+        {
+            Debug.LogError("[FlowerDatabaseEditor] Database is null.");
+            return;
+        }
+
+        List<FlowerData> list = GetDatabaseListCopy(database);
+
+        int nullEntries = 0;
+        int missingRu = 0;
+        int missingEn = 0;
+        int missingImage = 0;
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            FlowerData f = list[i];
+
+            if (f == null)
+            {
+                nullEntries++;
+                continue;
+            }
+
+            // Проверка пустого RU имени
+            if (string.IsNullOrWhiteSpace(f.NameRu))
+            {
+                missingRu++;
+                Debug.LogWarning($"[FlowerDatabaseEditor] Missing NameRu: asset='{f.name}', id={f.Id}");
+            }
+
+            // Проверка пустого EN имени
+            if (string.IsNullOrWhiteSpace(f.NameEn))
+            {
+                missingEn++;
+                Debug.LogWarning($"[FlowerDatabaseEditor] Missing NameEn: asset='{f.name}', id={f.Id}");
+            }
+
+            // Проверка отсутствия картинки
+            if (f.Image == null)
+            {
+                missingImage++;
+                Debug.LogWarning($"[FlowerDatabaseEditor] Missing Image: asset='{f.name}', id={f.Id}");
+            }
+        }
+
+        List<int> duplicates = database.GetDuplicateIds();
+
+        string duplicatesText = (duplicates == null || duplicates.Count == 0)
+            ? "none"
+            : string.Join(", ", duplicates);
+
+        Debug.Log(
+            $"[FlowerDatabaseEditor] Validation complete for '{database.name}': " +
+            $"NullEntries={nullEntries}, MissingRu={missingRu}, MissingEn={missingEn}, MissingImage={missingImage}, DuplicateIDs={duplicatesText}"
+        );
+    }
+
+    // ===== НОВОЕ: ПРЕДПРОСМОТР СТАТИСТИКИ В ИНСПЕКТОРЕ =====
+
+    private static void DrawStatsPreview(FlowerDatabase database)
+    {
+        if (database == null)
+        {
+            EditorGUILayout.HelpBox("Database is null.", MessageType.Error);
+            return;
+        }
+
+        FlowerDatabase.DifficultyStats s = database.GetDifficultyStats();
+        List<int> duplicates = database.GetDuplicateIds();
+
+        EditorGUILayout.BeginVertical("box");
+
+        EditorGUILayout.LabelField("Quick Stats Preview", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Total", s.total.ToString());
+        EditorGUILayout.LabelField("Easy", s.easy.ToString());
+        EditorGUILayout.LabelField("Medium", s.medium.ToString());
+        EditorGUILayout.LabelField("Hard", s.hard.ToString());
+        EditorGUILayout.LabelField("MaxHard", s.maxHard.ToString());
+        EditorGUILayout.LabelField("Null Entries", s.nullItems.ToString());
+
+        string duplicateText = (duplicates == null || duplicates.Count == 0)
+            ? "None"
+            : string.Join(", ", duplicates);
+
+        EditorGUILayout.LabelField("Duplicate IDs", duplicateText);
+
+        EditorGUILayout.EndVertical();
+    }
+
     // ===== СЛУЖЕБНЫЕ МЕТОДЫ =====
 
-    // Получить копию списка из FlowerDatabase
-    // Здесь предполагается, что у твоего FlowerDatabase есть метод/свойство доступа к списку.
     private static List<FlowerData> GetDatabaseListCopy(FlowerDatabase database)
     {
-        // ВАЖНО:
-        // Если у тебя в FlowerDatabase поле называется flowers и оно public:
-        // return new List<FlowerData>(database.flowers);
-        //
-        // Если поле private [SerializeField] и есть свойство Flowers:
-        // return new List<FlowerData>(database.Flowers);
-        //
-        // Ниже — версия под свойство Flowers (самый частый вариант):
         return new List<FlowerData>(database.Flowers);
     }
 
-    // Записать список в FlowerDatabase
     private static void AssignListToDatabase(FlowerDatabase database, List<FlowerData> list)
     {
-        // ВАЖНО:
-        // Если у тебя поле public List<FlowerData> flowers; -> database.flowers = list;
-        // Если private [SerializeField] List<FlowerData> flowers; и есть метод SetFlowers(...) — вызови его.
-        // Если только свойство IReadOnlyList — тогда лучше добавить метод в FlowerDatabase (ниже покажу).
-        //
-        // Ниже — вариант через метод SetFlowers (рекомендую):
         database.SetFlowers(list);
     }
 }

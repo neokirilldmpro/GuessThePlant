@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Medium
   m_EditorClassIdentifier: Assembly-CSharp::QuizDifficultyPreset
   presetName: Medium
-  questionsCount: 10
+  questionsCount: 30
   uniqueCorrectAnswers: 1
   poolMode: 1
   minId: 1

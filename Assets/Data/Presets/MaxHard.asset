@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: MaxHard
   m_EditorClassIdentifier: Assembly-CSharp::QuizDifficultyPreset
   presetName: Max Hard
-  questionsCount: 10
+  questionsCount: 13
   uniqueCorrectAnswers: 1
   poolMode: 1
   minId: 1
