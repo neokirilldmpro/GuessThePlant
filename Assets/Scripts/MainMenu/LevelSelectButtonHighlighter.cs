@@ -1,84 +1,112 @@
-/*Этот скрипт:
-знает 4 кнопки уровней
-смотрит, какой Preset выбран сейчас
-красит выбранную кнопку в цвет selectedColor
-остальные — в normalColor*/
-// Подключаем Unity API
 using UnityEngine;
-
-// Подключаем UI (Button, Image)
 using UnityEngine.UI;
 
-// Скрипт подсветки выбранного уровня на панели выбора.
-// Вешается на объект LevelSelectPanel (или отдельный объект в этой панели).
+// Этот скрипт отвечает только за внешний вид кнопок выбора уровней.
+// Теперь у кнопок будет 3 визуальных состояния:
+//
+// 1) normalColor   -> уровень доступен, но не выбран
+// 2) selectedColor -> уровень доступен и выбран
+// 3) lockedColor   -> уровень пока закрыт
 public class LevelSelectButtonHighlighter : MonoBehaviour
 {
-    [Header("Buttons")] // Заголовок в инспекторе
-    [SerializeField] private Button easyButton; // Кнопка Easy
-    [SerializeField] private Button mediumButton; // Кнопка Medium
-    [SerializeField] private Button hardButton; // Кнопка Hard
-    [SerializeField] private Button maxHardButton; // Кнопка MaxHard
+    [Header("Buttons")]
+    [SerializeField] private Button easyButton;      // Кнопка Easy
+    [SerializeField] private Button mediumButton;    // Кнопка Medium
+    [SerializeField] private Button hardButton;      // Кнопка Hard
+    [SerializeField] private Button maxHardButton;   // Кнопка MaxHard
 
-    [Header("Presets")] // Заголовок в инспекторе
-    [SerializeField] private QuizDifficultyPreset easyPreset; // Пресет Easy
-    [SerializeField] private QuizDifficultyPreset mediumPreset; // Пресет Medium
-    [SerializeField] private QuizDifficultyPreset hardPreset; // Пресет Hard
-    [SerializeField] private QuizDifficultyPreset maxHardPreset; // Пресет MaxHard
+    [Header("Presets")]
+    [SerializeField] private QuizDifficultyPreset easyPreset;     // Preset Easy
+    [SerializeField] private QuizDifficultyPreset mediumPreset;   // Preset Medium
+    [SerializeField] private QuizDifficultyPreset hardPreset;     // Preset Hard
+    [SerializeField] private QuizDifficultyPreset maxHardPreset;  // Preset MaxHard
 
-    [Header("Colors")] // Заголовок в инспекторе
-    [SerializeField] private Color normalColor = Color.white; // Цвет обычной кнопки
-    [SerializeField] private Color selectedColor = new Color(1f, 0.85f, 0.2f, 1f); // Цвет выбранного уровня (золотистый)
+    [Header("Colors")]
+    [SerializeField] private Color normalColor = Color.white;
+    // Цвет обычной доступной кнопки
 
-    [Header("Optional")] // Заголовок в инспекторе
-    [SerializeField] private bool refreshContinuously = false; // Если true — обновлять каждый кадр (обычно не нужно)
+    [SerializeField] private Color selectedColor = new Color(1f, 0.85f, 0.2f, 1f);
+    // Цвет выбранного доступного уровня
 
-    private void OnEnable() // Unity вызывает при активации объекта/панели
+    [SerializeField] private Color lockedColor = new Color(0.72f, 0.72f, 0.72f, 1f);
+    // Цвет закрытого уровня
+    // Его можно потом подобрать в инспекторе, если захочешь светлее/темнее
+
+    [Header("Optional")]
+    [SerializeField] private bool refreshContinuously = false;
+    // Обычно false.
+    // Если true, то скрипт будет каждый кадр заново проверять цвета.
+    // Это бывает полезно только если что-то часто меняется на лету.
+
+    private void OnEnable()
     {
-        Refresh(); // Обновляем подсветку, когда панель открылась
+        // Когда объект включили, сразу обновляем все кнопки
+        Refresh();
     }
 
-    private void Start() // Unity вызывает при старте
+    private void Start()
     {
-        Refresh(); // На всякий случай обновляем ещё раз
+        // И ещё раз обновим на старте для надёжности
+        Refresh();
     }
 
-    private void Update() // Unity вызывает каждый кадр
+    private void Update()
     {
-        // Обычно не нужен, но можно включить для отладки
+        // Непрерывное обновление обычно не нужно,
+        // но оставляем как опцию
         if (refreshContinuously)
         {
             Refresh();
         }
     }
 
-    // Публичный метод обновления подсветки (можно вызывать вручную после выбора уровня)
+    // Главный публичный метод:
+    // его можно вызывать из других скриптов после смены выбора уровня
     public void Refresh()
     {
-        // Текущий выбранный пресет из статических настроек сессии
+        // Узнаём, какой preset сейчас выбран в GameSessionSettings
         QuizDifficultyPreset selected = GameSessionSettings.SelectedPreset;
 
-        // Красим каждую кнопку: если её пресет выбран — selectedColor, иначе normalColor
-        ApplyButtonColor(easyButton, selected == easyPreset);
-        ApplyButtonColor(mediumButton, selected == mediumPreset);
-        ApplyButtonColor(hardButton, selected == hardPreset);
-        ApplyButtonColor(maxHardButton, selected == maxHardPreset);
+        // Для каждой кнопки отдельно решаем, какой цвет она должна получить
+        ApplyButtonColor(easyButton, easyPreset, selected == easyPreset);
+        ApplyButtonColor(mediumButton, mediumPreset, selected == mediumPreset);
+        ApplyButtonColor(hardButton, hardPreset, selected == hardPreset);
+        ApplyButtonColor(maxHardButton, maxHardPreset, selected == maxHardPreset);
     }
 
-    // Вспомогательный метод: покрасить кнопку
-    private void ApplyButtonColor(Button button, bool isSelected)
+    // Этот метод красит одну конкретную кнопку
+    private void ApplyButtonColor(Button button, QuizDifficultyPreset preset, bool isSelected)
     {
-        // Если кнопка не назначена — ничего не делаем
+        // Если ссылка на кнопку не назначена — ничего не делаем
         if (button == null)
             return;
 
-        // У Button обычно есть Image на том же объекте (фон кнопки)
+        // Получаем Image на самой кнопке
         Image img = button.GetComponent<Image>();
 
-        // Если Image нет — выходим
+        // Если Image не найден — красить нечего
         if (img == null)
             return;
 
-        // Ставим цвет в зависимости от выбранности
-        img.color = isSelected ? selectedColor : normalColor;
+        // Проверяем, открыт ли этот уровень
+        // Здесь используется твоя уже добавленная логика открытия уровней
+        bool unlocked = LevelUnlockService.IsUnlocked(preset);
+
+        // Если уровень закрыт — всегда серый цвет
+        if (!unlocked)
+        {
+            img.color = lockedColor;
+            return;
+        }
+
+        // Если уровень открыт и выбран — цвет selected
+        if (isSelected)
+        {
+            img.color = selectedColor;
+            return;
+        }
+
+        // Если уровень открыт, но не выбран — обычный цвет
+        img.color = normalColor;
     }
 }

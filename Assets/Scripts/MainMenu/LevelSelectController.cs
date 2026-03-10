@@ -1,97 +1,120 @@
-// Подключаем Unity API
 using UnityEngine;
-
-// Подключаем загрузку сцен (если включишь автостарт)
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
-// Контроллер панели выбора уровня.
-// Ставит выбранный QuizDifficultyPreset в GameSessionSettings.
 public class LevelSelectController : MonoBehaviour
 {
-    [Header("Level Presets")] // Заголовок в инспекторе
-    [SerializeField] private QuizDifficultyPreset easyPreset; // Пресет Easy
-    [SerializeField] private QuizDifficultyPreset mediumPreset; // Пресет Medium
-    [SerializeField] private QuizDifficultyPreset hardPreset; // Пресет Hard
-    [SerializeField] private QuizDifficultyPreset maxHardPreset; // Пресет MaxHard
+    [Header("Level Presets")]
+    [SerializeField] private QuizDifficultyPreset easyPreset;
+    [SerializeField] private QuizDifficultyPreset mediumPreset;
+    [SerializeField] private QuizDifficultyPreset hardPreset;
+    [SerializeField] private QuizDifficultyPreset maxHardPreset;
 
-    [Header("Behavior")] // Заголовок в инспекторе
-    [SerializeField] private bool autoStartGameAfterSelection = false; // Если true — сразу запускаем игру
+    [Header("Level Buttons")]
+    [SerializeField] private Button easyButton;
+    [SerializeField] private Button mediumButton;
+    [SerializeField] private Button hardButton;
+    [SerializeField] private Button maxHardButton;
 
-    [Header("Optional UI")] // Заголовок в инспекторе
-    [SerializeField] private LevelSelectButtonHighlighter buttonHighlighter; // Подсветка выбранной кнопки
-    [SerializeField] private SelectedLevelLabel selectedLevelLabel; // Надпись "Выбран уровень: ..."
+    [Header("Behavior")]
+    [SerializeField] private bool autoStartGameAfterSelection = false;
 
-    private void Start() // Unity вызывает при старте
+    [Header("Optional UI")]
+    [SerializeField] private LevelSelectButtonHighlighter buttonHighlighter;
+    [SerializeField] private SelectedLevelLabel selectedLevelLabel;
+
+    private void Start()
     {
-        // Обновляем подсветку при старте
-        if (buttonHighlighter != null)
+        RefreshLocks();
+
+        // Если выбранный уровень оказался закрытым, откатываемся на Easy
+        if (!LevelUnlockService.IsUnlocked(GameSessionSettings.SelectedPreset))
         {
-            buttonHighlighter.Refresh();
+            GameSessionSettings.SelectedPreset = easyPreset;
         }
 
-        // Обновляем текст выбранного уровня при старте
-        if (selectedLevelLabel != null)
-        {
-            selectedLevelLabel.Refresh();
-        }
+        RefreshVisuals();
     }
 
-    // Выбор Easy
+    private void OnEnable()
+    {
+        RefreshLocks();
+
+        if (!LevelUnlockService.IsUnlocked(GameSessionSettings.SelectedPreset))
+        {
+            GameSessionSettings.SelectedPreset = easyPreset;
+        }
+
+        RefreshVisuals();
+    }
+
     public void SelectEasy()
     {
         SelectPreset(easyPreset);
     }
 
-    // Выбор Medium
     public void SelectMedium()
     {
         SelectPreset(mediumPreset);
     }
 
-    // Выбор Hard
     public void SelectHard()
     {
         SelectPreset(hardPreset);
     }
 
-    // Выбор MaxHard
     public void SelectMaxHard()
     {
         SelectPreset(maxHardPreset);
     }
 
-    // Общий метод выбора пресета
     private void SelectPreset(QuizDifficultyPreset preset)
     {
-        // Проверка: пресет должен быть назначен
         if (preset == null)
         {
             Debug.LogError("[LevelSelectController] Tried to select null preset.");
             return;
         }
 
-        // Сохраняем выбранный пресет в статические настройки сессии
-        GameSessionSettings.SelectedPreset = preset;
+        if (!LevelUnlockService.IsUnlocked(preset))
+        {
+            Debug.Log($"[LevelSelectController] Preset locked: {preset.PresetName}");
+            return;
+        }
 
-        // Лог в консоль для проверки
+        GameSessionSettings.SelectedPreset = preset;
         Debug.Log($"[LevelSelectController] Selected preset: {preset.PresetName}");
 
-        // Обновляем подсветку выбранной кнопки
-        if (buttonHighlighter != null)
-        {
-            buttonHighlighter.Refresh();
-        }
+        RefreshVisuals();
 
-        // Обновляем надпись с выбранным уровнем
-        if (selectedLevelLabel != null)
-        {
-            selectedLevelLabel.Refresh();
-        }
-
-        // Если включён автостарт — сразу грузим GameScene
         if (autoStartGameAfterSelection)
         {
             SceneManager.LoadScene(GameSessionSettings.GameSceneName);
         }
+    }
+
+    public void RefreshLocks()
+    {
+        ApplyLock(easyButton, easyPreset);
+        ApplyLock(mediumButton, mediumPreset);
+        ApplyLock(hardButton, hardPreset);
+        ApplyLock(maxHardButton, maxHardPreset);
+    }
+
+    private void ApplyLock(Button button, QuizDifficultyPreset preset)
+    {
+        if (button == null)
+            return;
+
+        button.interactable = LevelUnlockService.IsUnlocked(preset);
+    }
+
+    private void RefreshVisuals()
+    {
+        if (buttonHighlighter != null)
+            buttonHighlighter.Refresh();
+
+        if (selectedLevelLabel != null)
+            selectedLevelLabel.Refresh();
     }
 }

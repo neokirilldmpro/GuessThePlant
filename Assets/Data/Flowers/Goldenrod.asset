@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aaa358278caf09d48a4fbbfd9bcb9f22, type: 3}
+  m_Name: Goldenrod
+  m_EditorClassIdentifier: Assembly-CSharp::FlowerData
+  id: 118
+  nameRu: "\u0417\u043E\u043B\u043E\u0442\u0430\u0440\u043D\u0438\u043A"
+  nameEn: Goldenrod
+  difficulty: 0
+  image: {fileID: 21300000, guid: 4b2e1b32cf916a34b98559bb3e643ede, type: 3}

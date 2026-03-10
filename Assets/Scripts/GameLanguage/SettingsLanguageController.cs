@@ -31,6 +31,13 @@ public class SettingsLanguageController : MonoBehaviour
     [Header("Optional Selected Level Label")] // Если есть твой скрипт надписи выбранного уровня
     [SerializeField] private SelectedLevelLabel selectedLevelLabel;
 
+    [Header("SFX")]
+    [SerializeField] private TMP_Text VolumeSFXText;
+
+    [Header("PortfolioPanel")]
+    [SerializeField] private TMP_Text BackText;
+
+
     private void Start()
     {
         RefreshTexts(); // При старте применяем язык ко всем подписям
@@ -69,6 +76,10 @@ public class SettingsLanguageController : MonoBehaviour
         if (VolumeMusic != null)
             VolumeMusic.text = en ? "Music volume:" : "Громкость музыки:";
 
+        if (VolumeSFXText != null)
+            VolumeSFXText.text = en ? "SFX:" : "Звуки:";
+
+
 
 
         // ===== Main menu =====
@@ -106,5 +117,11 @@ public class SettingsLanguageController : MonoBehaviour
         // Обновляем надпись выбранного уровня (если используется)
         if (selectedLevelLabel != null)
             selectedLevelLabel.Refresh();
+
+
+        //  ====PortfolioPanel====
+        if (BackText != null)
+            BackText.text = en ? "Back" : "Назад";
+
     }
 }

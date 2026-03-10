@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aaa358278caf09d48a4fbbfd9bcb9f22, type: 3}
+  m_Name: Crocosmia
+  m_EditorClassIdentifier: Assembly-CSharp::FlowerData
+  id: 132
+  nameRu: "\u041C\u043E\u043D\u0431\u0440\u0435\u0446\u0438\u044F"
+  nameEn: Crocosmia
+  difficulty: 1
+  image: {fileID: 21300000, guid: d223ca7a169bcef4fa4a3368f3071106, type: 3}

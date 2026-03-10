@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Hard
   m_EditorClassIdentifier: Assembly-CSharp::QuizDifficultyPreset
   presetName: Hard
-  questionsCount: 28
+  questionsCount: 50
   uniqueCorrectAnswers: 1
   poolMode: 1
   minId: 1

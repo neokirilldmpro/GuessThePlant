@@ -27,6 +27,9 @@ public class MainMenuController : MonoBehaviour
 
     private void Start() // Unity вызывает при запуске сцены
     {
+        /*PlayerPrefs.DeleteAll();
+        PlayerPrefs.Save();
+        Debug.Log("PlayerPrefs cleared");*/
         // Если выбранный уровень ещё не задан — ставим дефолтный (если он назначен)
         if (GameSessionSettings.SelectedPreset == null && defaultPreset != null)
         {
@@ -65,7 +68,7 @@ public class MainMenuController : MonoBehaviour
 
     // Нажатие на кнопку "Играть"
     // Загружает сцену игры с текущим выбранным пресетом.
-    public void Play()
+    /*public void Play()
     {
         // Если пресет не выбран и дефолт тоже не назначен — это ошибка настройки меню
         if (GameSessionSettings.SelectedPreset == null)
@@ -76,7 +79,32 @@ public class MainMenuController : MonoBehaviour
 
         // Загружаем сцену игры
         SceneManager.LoadScene(GameSessionSettings.GameSceneName);
+    }*/
+    public void Play()
+    {
+        // Если preset не выбран - запускать игру нельзя.
+        if (GameSessionSettings.SelectedPreset == null)
+        {
+            Debug.LogError("[MainMenuController] SelectedPreset is null. Assign defaultPreset or choose a level first.");
+            return;
+        }
+
+        // Если мост рекламы не найден - не ломаем игру, просто грузим сцену.
+        if (YandexAdsBridge.Instance == null)
+        {
+            Debug.LogWarning("[MainMenuController] YandexAdsBridge not found. Loading game without interstitial.");
+            SceneManager.LoadScene(GameSessionSettings.GameSceneName);
+            return;
+        }
+
+        // Показываем interstitial.
+        // После закрытия рекламы грузим игровую сцену.
+        YandexAdsBridge.Instance.ShowInterstitialThen(() =>
+        {
+            SceneManager.LoadScene(GameSessionSettings.GameSceneName);
+        });
     }
+
 
     // Универсальная кнопка "Назад" (из Настроек/Выбора уровня)
     public void BackToMainMenu()

@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aaa358278caf09d48a4fbbfd9bcb9f22, type: 3}
+  m_Name: Blazing star
+  m_EditorClassIdentifier: Assembly-CSharp::FlowerData
+  id: 133
+  nameRu: "\u041B\u0438\u0430\u0442\u0440\u0438\u0441"
+  nameEn: Blazing star
+  difficulty: 1
+  image: {fileID: 21300000, guid: 379cd85f8d6792a4b8deca070dc33d69, type: 3}

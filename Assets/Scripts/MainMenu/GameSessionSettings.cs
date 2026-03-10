@@ -14,4 +14,26 @@ public static class GameSessionSettings
 
     // Имя сцены меню (пригодится позже, например для кнопки "В меню").
     public const string MenuSceneName = "MenuScene";
+
+    public static QuizDifficultyPreset EasyPreset;
+    public static QuizDifficultyPreset MediumPreset;
+    public static QuizDifficultyPreset HardPreset;
+    public static QuizDifficultyPreset MaxHardPreset;
+
+    public static bool TrySetNextPresetByKey(string key)
+    {
+        key = key.Trim().ToLowerInvariant();
+
+        QuizDifficultyPreset next = null;
+
+        if (key == "easy") next = EasyPreset;
+        else if (key == "medium") next = MediumPreset;
+        else if (key == "hard") next = HardPreset;
+        else if (key == "maxhard") next = MaxHardPreset;
+
+        if (next == null) return false;
+
+        SelectedPreset = next;
+        return true;
+    }
 }

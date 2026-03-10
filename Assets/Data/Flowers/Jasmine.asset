@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Jasmine
   m_EditorClassIdentifier: Assembly-CSharp::FlowerData
   id: 92
-  nameRu: Jasmine
+  nameRu: "\u0416\u0430\u0441\u043C\u0438\u043D"
   nameEn: Jasmine
   difficulty: 1
   image: {fileID: 21300000, guid: 9720b4c04ff1cd54fbc86ff8dac8c106, type: 3}

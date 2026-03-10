@@ -22,6 +22,8 @@ public class QuizGameController : MonoBehaviour
     [Header("UI")] // Подпись в инспекторе
     [SerializeField] private QuizUIView ui; // Ссылка на UI-скрипт, который показывает вопрос и кнопки
 
+    [SerializeField] private QuizResultView resultView;
+
     // ===== НАСТРОЙКИ ПРОЦЕССА =====
 
     [Header("Flow")] // Подпись в инспекторе
@@ -34,6 +36,9 @@ public class QuizGameController : MonoBehaviour
     private int _score; // Сколько правильных ответов
     private int _streak; // Серия правильных ответов подряд
     private bool _inputLocked; // Блокировка ввода во время подсветки (чтобы не кликали 10 раз)
+
+
+    [SerializeField] private AchievementVisuals achievementVisuals;
 
     // Awake вызывается до Start; тут удобно подписаться на события UI
     private void Awake()
@@ -109,6 +114,7 @@ public class QuizGameController : MonoBehaviour
 
         // Показываем первый вопрос
         ShowCurrentQuestion();
+        if (resultView != null) resultView.Hide();
     }
 
     // Показать текущий вопрос на UI
@@ -171,6 +177,10 @@ public class QuizGameController : MonoBehaviour
 
             // Подсвечиваем выбранную кнопку как правильную
             ui.MarkCorrect(chosenIndex);
+
+            // SFX правильного ответа
+            if (SfxManager.Instance != null)
+                SfxManager.Instance.PlayCorrect();
         }
         else // Если ответ неправильный
         {
@@ -182,6 +192,10 @@ public class QuizGameController : MonoBehaviour
 
             // Подсвечиваем правильную кнопку зелёным
             //ui.MarkCorrect(q.correctIndex);
+
+            // SFX неправильного ответа
+            if (SfxManager.Instance != null)
+                SfxManager.Instance.PlayWrong();
         }
 
         // Запускаем корутину: подождать и перейти к следующему вопросу
@@ -208,25 +222,137 @@ public class QuizGameController : MonoBehaviour
         ShowCurrentQuestion();
     }
 
-    // Завершение раунда
     private void FinishQuiz()
     {
-        // Получаем имя режима (для сохранения)
+        int total = _questions != null ? _questions.Count : 0;
+        int score = _score;
+
+        // Пройти уровень можно с ошибками <= 2
+        int allowedMistakes = 2;
+        int requiredScore = Mathf.Max(0, total - allowedMistakes);
+        bool passed = score >= requiredScore;
+
+        // Нашивка только за идеальное прохождение
+        bool perfectRun = (score == total);
+
+        Sprite newPatchSprite = null;
+
+        // 1) Сохраняем прогресс уровня
         string modeName = (preset != null) ? preset.PresetName : "Unknown";
 
-        // Загружаем лучший результат
         int best = SimpleSaveService.LoadBestScore(modeName);
+        if (score > best)
+            SimpleSaveService.SaveBestScore(modeName, score);
 
-        // Если текущий лучше — сохраняем
-        if (_score > best)
-            SimpleSaveService.SaveBestScore(modeName, _score);
+        if (passed)
+            SimpleSaveService.SaveCompleted(modeName, true);
 
-        // Отмечаем режим как пройденный (можешь потом использовать для UI)
-        SimpleSaveService.SaveCompleted(modeName, true);
+        // 2) Выдаём нашивку только без единой ошибки
+        if (perfectRun)
+        {
+            AchievementId? id = GetAchievementIdForPreset(preset);
 
-        // Для начала просто лог в консоль
-        Debug.Log($"[QuizGameController] Finished. Mode={modeName}, Score={_score}/{_questions.Count}");
+            if (id.HasValue)
+            {
+                bool alreadyUnlocked = AchievementService.IsUnlocked(id.Value);
 
-        // TODO: позже здесь будет включаться ResultPanel (экран результата)
+                if (!alreadyUnlocked)
+                {
+                    AchievementService.Unlock(id.Value);
+
+                    if (achievementVisuals != null)
+                        newPatchSprite = achievementVisuals.GetPatchSprite(id.Value);
+                }
+            }
+        }
+
+        // 3) Показываем результат
+        if (ui != null)
+            ui.SetInteractable(false);
+
+        if (resultView != null)
+        {
+            resultView.Show(score, total, preset);
+            resultView.ShowNewPatch(newPatchSprite);
+        }
+
+        Debug.Log(
+            $"[QuizGameController] Finished. Mode={modeName}, Score={score}/{total}, Passed={passed}, Perfect={perfectRun}, NewPatch={(newPatchSprite != null)}"
+        );
+    }
+    private void UnlockAchievementForPreset(QuizDifficultyPreset p)
+    {
+        if (p == null) return;
+
+        string key = p.PresetName.Trim().ToLowerInvariant();
+
+        if (key == "easy") AchievementService.Unlock(AchievementId.CompleteEasy);
+        else if (key == "medium") AchievementService.Unlock(AchievementId.CompleteMedium);
+        else if (key == "hard") AchievementService.Unlock(AchievementId.CompleteHard);
+        else if (key == "maxhard" || key == "max hard" || key == "max_hard") AchievementService.Unlock(AchievementId.CompleteMaxHard);
+    }
+
+    private AchievementId? GetAchievementIdForPreset(QuizDifficultyPreset p)
+    {
+        if (p == null) return null;
+
+        string key = p.PresetName.Trim().ToLowerInvariant();
+
+        if (key == "easy") return AchievementId.CompleteEasy;
+        if (key == "medium") return AchievementId.CompleteMedium;
+        if (key == "hard") return AchievementId.CompleteHard;
+        if (key == "maxhard" || key == "max hard" || key == "max_hard") return AchievementId.CompleteMaxHard;
+
+        return null;
+    }
+
+    public bool TryUseRewardedCorrectAnswer()
+    {
+        // Если ввод уже заблокирован,
+        // значит либо игрок уже нажал ответ,
+        // либо сейчас идёт переход к следующему вопросу.
+        if (_inputLocked)
+            return false;
+
+        // Если вопросов нет - использовать награду нельзя.
+        if (_questions == null || _questions.Count == 0)
+            return false;
+
+        // Если индекс вопроса некорректный - тоже выходим.
+        if (_currentIndex < 0 || _currentIndex >= _questions.Count)
+            return false;
+
+        // Берём текущий вопрос.
+        FlowerQuestion q = _questions[_currentIndex];
+
+        // На время обработки награды блокируем ввод.
+        _inputLocked = true;
+
+        // Отключаем нажатия по вариантам ответа.
+        if (ui != null)
+            ui.SetInteractable(false);
+
+        // Подсвечиваем правильный вариант.
+        // Для игрока это выглядит так:
+        // он посмотрел rewarded -> игра показала правильный ответ.
+        if (ui != null)
+            ui.MarkCorrect(q.correctIndex);
+
+        // Засчитываем это как правильный ответ.
+        _score++;
+
+        // И увеличиваем streak,
+        // потому что с точки зрения результата ответ считается правильным.
+        _streak++;
+
+        // Проигрываем "правильный" звук.
+        if (SfxManager.Instance != null)
+            SfxManager.Instance.PlayCorrect();
+
+        // Переходим к следующему вопросу после той же задержки,
+        // что и при обычном правильном ответе.
+        StartCoroutine(GoNextAfterDelay());
+
+        return true;
     }
 }

@@ -21,10 +21,10 @@ public class UIButtonFeedback : MonoBehaviour, IPointerEnterHandler, IPointerExi
     [SerializeField] private float pressedScale = 0.96f; // Масштаб при нажатии
     [SerializeField] private float scaleLerpSpeed = 16f; // Скорость плавного перехода масштаба
 
-    [Header("Sound")] // Заголовок в инспекторе
+    /*[Header("Sound")] // Заголовок в инспекторе
     [SerializeField] private AudioSource audioSource; // Источник звука (можно общий на сцене)
     [SerializeField] private AudioClip clickClip; // Звук клика по кнопке
-    [SerializeField] [Range(0f, 1f)] private float clickVolume = 1f; // Громкость клика
+    [SerializeField] [Range(0f, 1f)] private float clickVolume = 1f; // Громкость клика*/
 
     private Button _button; // Кеш ссылки на Button
     private RectTransform _rect; // Кеш ссылки на RectTransform (чтобы менять scale)
@@ -43,19 +43,19 @@ public class UIButtonFeedback : MonoBehaviour, IPointerEnterHandler, IPointerExi
             _rect.localScale = Vector3.one * normalScale; // Ставим стартовый масштаб
         }
 
-        if (_button != null) // Если Button найден
+       /* if (_button != null) // Если Button найден
         {
             _button.onClick.AddListener(PlayClickSound); // Подписываемся на onClick для звука
-        }
+        }*/
     }
 
-    private void OnDestroy() // Unity вызывает при уничтожении объекта
+    /*private void OnDestroy() // Unity вызывает при уничтожении объекта
     {
         if (_button != null) // Если Button существует
         {
             _button.onClick.RemoveListener(PlayClickSound); // Отписываемся от события (хорошая практика)
         }
-    }
+    }*/
 
     public void OnPointerEnter(PointerEventData eventData) // Событие: курсор вошёл в кнопку
     {
@@ -89,6 +89,7 @@ public class UIButtonFeedback : MonoBehaviour, IPointerEnterHandler, IPointerExi
 
         // Анимируем к pressed scale
         AnimateToScale(pressedScale);
+        PlayClickSound();
     }
 
     public void OnPointerUp(PointerEventData eventData) // Событие: отпустили кнопку
@@ -97,9 +98,10 @@ public class UIButtonFeedback : MonoBehaviour, IPointerEnterHandler, IPointerExi
 
         // Если курсор ещё над кнопкой — возвращаем к hover scale, иначе к normal
         AnimateToScale(_isPointerOver ? hoverScale : normalScale);
+        
     }
 
-    private void PlayClickSound() // Метод вызывается через Button.onClick
+    /*private void PlayClickSound() // Метод вызывается через Button.onClick
     {
         // Если кнопка отключена, звук не играем
         if (_button != null && !_button.interactable)
@@ -115,6 +117,16 @@ public class UIButtonFeedback : MonoBehaviour, IPointerEnterHandler, IPointerExi
 
         // Проигрываем короткий звук клика без прерывания других звуков на AudioSource
         audioSource.PlayOneShot(clickClip, clickVolume);
+    }*/
+    private void PlayClickSound()
+    {
+        // Если кнопка отключена — звук не играем
+        if (_button != null && !_button.interactable)
+            return;
+
+        // Если есть SfxManager — играем клик через него (с общей громкостью SFX)
+        if (SfxManager.Instance != null)
+            SfxManager.Instance.PlayClick();
     }
 
     private void AnimateToScale(float targetScale) // Запуск плавной анимации к нужному масштабу
