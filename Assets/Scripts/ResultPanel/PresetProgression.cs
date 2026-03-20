@@ -1,29 +1,39 @@
 using UnityEngine;
 
-// Логика переключения на следующий уровень по выбранному пресету.
-// Работает на основе PresetName: Easy -> Medium -> Hard -> MaxHard
+// Этот класс отвечает за переход на СЛЕДУЮЩИЙ этап кампании.
+//
+// Раньше логика была жёстко пришита к строкам:
+// Easy -> Medium -> Hard -> MaxHard
+//
+// Теперь мы делаем правильно:
+// следующий этап ищется по StageOrder.
 public static class PresetProgression
 {
     public static bool TrySelectNextPreset()
     {
+        // Берём текущий выбранный этап.
         QuizDifficultyPreset current = GameSessionSettings.SelectedPreset;
 
-        // Если текущего нет — не можем перейти
-        if (current == null) return false;
+        // Если ничего не выбрано — перейти не можем.
+        if (current == null)
+            return false;
 
-        string key = current.PresetName.Trim().ToLowerInvariant();
+        // Ищем следующий этап по порядку.
+        QuizDifficultyPreset next = GameSessionSettings.GetNextStage(current);
 
-        // Ищем следующий по имени
-        string nextKey = null;
+        // Если следующего этапа нет — значит текущий был последним.
+        if (next == null)
+            return false;
 
-        if (key == "easy") nextKey = "medium";
-        else if (key == "medium") nextKey = "hard";
-        else if (key == "hard") nextKey = "maxhard";
-        else return false; // maxhard или неизвестное — дальше нет
+        // На всякий случай проверяем, что следующий этап уже открыт.
+        // Обычно после успешного прохождения это будет true,
+        // потому что прогресс уже сохранится в FinishQuiz().
+        if (!LevelUnlockService.IsUnlocked(next))
+            return false;
 
-        // Ищем в проекте preset с таким именем ассета/PreserName
-        // ВАЖНО: это runtime, поэтому AssetDatabase тут нельзя.
-        // Поэтому мы используем заранее заданные ссылки через GameSessionSettings.
-        return GameSessionSettings.TrySetNextPresetByKey(nextKey);
+        // Сохраняем следующий этап как выбранный.
+        GameSessionSettings.SelectedPreset = next;
+
+        return true;
     }
 }

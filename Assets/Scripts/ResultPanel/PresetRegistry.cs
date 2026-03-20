@@ -1,18 +1,25 @@
 using UnityEngine;
 
-// Один раз при старте меню регистрируем ссылки на пресеты в GameSessionSettings
+// Этот компонент живёт в меню и один раз регистрирует
+// все этапы кампании в GameSessionSettings.
+//
+// Раньше здесь было 4 отдельных поля:
+// easy / medium / hard / maxHard.
+//
+// Теперь у нас 8 этапов,
+// поэтому правильнее хранить их в массиве.
 public class PresetRegistry : MonoBehaviour
 {
-    [SerializeField] private QuizDifficultyPreset easy;
-    [SerializeField] private QuizDifficultyPreset medium;
-    [SerializeField] private QuizDifficultyPreset hard;
-    [SerializeField] private QuizDifficultyPreset maxHard;
+    [Header("Campaign stages")]
+    [Tooltip("Сюда в инспекторе нужно будет протянуть ВСЕ 8 этапов кампании." +
+             "Порядок в массиве не критичен,потому что RegisterCampaignPresets сам отсортирует их по StageOrder." +
+             "Но для твоего удобства лучше сразу класть их по порядку:1, 2, 3, 4, 5, 6, 7, 8")]
+    [SerializeField] private QuizDifficultyPreset[] campaignStages;
+    
 
     private void Awake()
     {
-        GameSessionSettings.EasyPreset = easy;
-        GameSessionSettings.MediumPreset = medium;
-        GameSessionSettings.HardPreset = hard;
-        GameSessionSettings.MaxHardPreset = maxHard;
+        // Регистрируем все этапы в GameSessionSettings.
+        GameSessionSettings.RegisterCampaignPresets(campaignStages);
     }
 }

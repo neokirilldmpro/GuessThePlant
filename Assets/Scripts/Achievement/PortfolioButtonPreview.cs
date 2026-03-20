@@ -1,58 +1,133 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
+// Мини-превью нашивок на кнопке рюкзака.
+// Теперь тоже автоматически обновляется при открытии новой нашивки.
 public class PortfolioButtonPreview : MonoBehaviour
 {
-    [Header("Mini slots on the button (same order as AchievementId)")]
-    [SerializeField] private Image[] miniSlots; // 4 мини-слота на кнопке
+    [Header("Mini slots")]
+    [SerializeField] private Image[] miniSlots;
 
-    [Header("Patch sprites (same as in portfolio)")]
-    [SerializeField] private Sprite patchEasy;
-    [SerializeField] private Sprite patchMedium;
-    [SerializeField] private Sprite patchHard;
-    [SerializeField] private Sprite patchMaxHard;
+    [Header("Visual source")]
+    [SerializeField] private AchievementVisuals achievementVisuals;
 
     [Header("Locked appearance")]
     [SerializeField, Range(0f, 1f)] private float lockedAlpha = 0.25f;
+
+    private Sprite[] _defaultMiniSprites;
+
+    private void Awake()
+    {
+        CacheDefaultSprites();
+    }
+
+    private void OnEnable()
+    {
+        AchievementService.AchievementUnlocked += OnAchievementUnlocked;
+        Refresh();
+    }
+
+    private void OnDisable()
+    {
+        AchievementService.AchievementUnlocked -= OnAchievementUnlocked;
+    }
 
     private void Start()
     {
         Refresh();
     }
 
-    private void OnEnable()
+    private void CacheDefaultSprites()
+    {
+        if (miniSlots == null)
+            return;
+
+        _defaultMiniSprites = new Sprite[miniSlots.Length];
+
+        for (int i = 0; i < miniSlots.Length; i++)
+        {
+            if (miniSlots[i] != null)
+                _defaultMiniSprites[i] = miniSlots[i].sprite;
+        }
+    }
+
+    private void OnAchievementUnlocked(AchievementId id)
     {
         Refresh();
     }
 
     public void Refresh()
     {
-        if (miniSlots == null || miniSlots.Length == 0) return;
+        if (miniSlots == null || miniSlots.Length == 0)
+            return;
 
-        Apply(0, AchievementId.CompleteEasy, patchEasy);
-        Apply(1, AchievementId.CompleteMedium, patchMedium);
-        Apply(2, AchievementId.CompleteHard, patchHard);
-        Apply(3, AchievementId.CompleteMaxHard, patchMaxHard);
+        if (achievementVisuals == null)
+        {
+            Debug.LogWarning("[PortfolioButtonPreview] AchievementVisuals is not assigned.");
+            return;
+        }
+
+        AchievementId[] allIds = (AchievementId[])Enum.GetValues(typeof(AchievementId));
+
+        int count = Mathf.Min(miniSlots.Length, allIds.Length);
+
+        for (int i = 0; i < count; i++)
+        {
+            ApplySlot(i, allIds[i]);
+        }
+
+        for (int i = count; i < miniSlots.Length; i++)
+        {
+            ResetSlotToDefault(i);
+        }
     }
 
-    private void Apply(int index, AchievementId id, Sprite sprite)
+    private void ApplySlot(int index, AchievementId id)
     {
-        if (index < 0 || index >= miniSlots.Length) return;
+        if (index < 0 || index >= miniSlots.Length)
+            return;
 
         Image img = miniSlots[index];
-        if (img == null) return;
+        if (img == null)
+            return;
 
         bool unlocked = AchievementService.IsUnlocked(id);
+        Sprite patchSprite = achievementVisuals.GetPatchSprite(id);
 
-        if (unlocked && sprite != null)
+        if (unlocked && patchSprite != null)
         {
-            img.sprite = sprite;
-            var c = img.color; c.a = 1f; img.color = c;
+            img.sprite = patchSprite;
+
+            Color c = img.color;
+            c.a = 1f;
+            img.color = c;
         }
         else
         {
-            // Оставляем базовую рамку/пустой слот (если есть), либо просто глушим альфой
-            var c = img.color; c.a = lockedAlpha; img.color = c;
+            if (_defaultMiniSprites != null && index < _defaultMiniSprites.Length)
+                img.sprite = _defaultMiniSprites[index];
+
+            Color c = img.color;
+            c.a = lockedAlpha;
+            img.color = c;
         }
+    }
+
+    private void ResetSlotToDefault(int index)
+    {
+        if (index < 0 || index >= miniSlots.Length)
+            return;
+
+        Image img = miniSlots[index];
+        if (img == null)
+            return;
+
+        if (_defaultMiniSprites != null && index < _defaultMiniSprites.Length)
+            img.sprite = _defaultMiniSprites[index];
+
+        Color c = img.color;
+        c.a = lockedAlpha;
+        img.color = c;
     }
 }

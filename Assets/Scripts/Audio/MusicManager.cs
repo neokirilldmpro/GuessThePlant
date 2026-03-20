@@ -2,6 +2,9 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+// Менеджер музыки между сценами.
+// Поддерживает menu music + 4 игровые группы музыки:
+// easy / medium / hard / expert(maxHardClip).
 public class MusicManager : MonoBehaviour
 {
     public static MusicManager Instance { get; private set; }
@@ -12,29 +15,31 @@ public class MusicManager : MonoBehaviour
     [SerializeField] private AudioClip mediumClip;
     [SerializeField] private AudioClip hardClip;
     [SerializeField] private AudioClip maxHardClip;
+    // maxHardClip используем как музыку для expert-этапов,
+    // чтобы не ломать уже настроенный Inspector.
 
     [Header("Playback")]
     [SerializeField] private float masterVolume = 0.6f;
     private const string MusicVolumeKey = "FLOWER_MUSIC_VOLUME";
+
     [SerializeField] private float crossfadeSeconds = 1.0f;
 
-    private AudioSource _a;               // активный
-    private AudioSource _b;               // резервный для кроссфейда
-    private AudioSource _activeSource;    // какая сейчас играет
+    private AudioSource _a;
+    private AudioSource _b;
+    private AudioSource _activeSource;
     private Coroutine _fadeRoutine;
 
     private void Awake()
     {
-        // Singleton
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
+
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        // Делаем 2 AudioSource для кроссфейда
         _a = gameObject.AddComponent<AudioSource>();
         _b = gameObject.AddComponent<AudioSource>();
 
@@ -43,13 +48,9 @@ public class MusicManager : MonoBehaviour
 
         _activeSource = _a;
 
-        // Подписываемся на смену сцен
         SceneManager.sceneLoaded += OnSceneLoaded;
 
-        // Загружаем сохранённую громкость (если нет — используем masterVolume из инспектора)
         masterVolume = PlayerPrefs.GetFloat(MusicVolumeKey, masterVolume);
-
-        // Применяем громкость к текущему активному источнику (на случай если он уже играет)
         _activeSource.volume = masterVolume;
     }
 
@@ -64,12 +65,11 @@ public class MusicManager : MonoBehaviour
         s.playOnAwake = false;
         s.loop = true;
         s.volume = 0f;
-        s.spatialBlend = 0f; // 2D
+        s.spatialBlend = 0f;
     }
 
     private void Start()
     {
-        // На случай если MusicManager стоит сразу в первой сцене
         ApplyMusicForCurrentContext();
     }
 
@@ -82,47 +82,79 @@ public class MusicManager : MonoBehaviour
     {
         string sceneName = SceneManager.GetActiveScene().name;
 
-        // 1) Меню
+        // В меню всегда играет menuClip.
         if (sceneName == GameSessionSettings.MenuSceneName)
         {
             PlayWithCrossfade(menuClip);
             return;
         }
 
-        // 2) Игра
+        // В игровой сцене выбираем клип по текущему этапу.
         if (sceneName == GameSessionSettings.GameSceneName)
         {
             AudioClip clip = PickGameClip();
             PlayWithCrossfade(clip);
             return;
         }
-
-        // 3) Прочие сцены — можно оставить как есть (ничего не менять)
     }
 
     private AudioClip PickGameClip()
     {
-        // Берём выбранный preset из меню
         QuizDifficultyPreset preset = GameSessionSettings.SelectedPreset;
 
-        // Если preset не выбран — считаем, что Easy
-        string presetName = preset != null ? preset.PresetName : "Easy";
-        string key = presetName.Trim().ToLowerInvariant();
+        // Если preset почему-то не выбран —
+        // лучше играть easyClip, а не menuClip,
+        // чтобы не было ощущения, что игра "зависла на меню-музыке".
+        if (preset == null)
+        {
+            Debug.LogWarning("[MusicManager] SelectedPreset is null. Fallback to easyClip.");
+            return easyClip != null ? easyClip : menuClip;
+        }
 
-        if (key == "easy") return easyClip != null ? easyClip : menuClip;
-        if (key == "medium") return mediumClip != null ? mediumClip : menuClip;
-        if (key == "hard") return hardClip != null ? hardClip : menuClip;
-        if (key == "maxhard" || key == "max hard" || key == "max_hard") return maxHardClip != null ? maxHardClip : menuClip;
+        // Главный новый ориентир — stageKey.
+        string stageKey = preset.StageKey != null
+            ? preset.StageKey.Trim().ToLowerInvariant()
+            : string.Empty;
 
-        // Если пресет назван нестандартно — fallback
+        // ---------- Группы по stageKey ----------
+        if (stageKey.StartsWith("easy"))
+            return easyClip != null ? easyClip : menuClip;
+
+        if (stageKey.StartsWith("medium"))
+            return mediumClip != null ? mediumClip : menuClip;
+
+        if (stageKey.StartsWith("hard"))
+            return hardClip != null ? hardClip : menuClip;
+
+        if (stageKey.StartsWith("expert"))
+            return maxHardClip != null ? maxHardClip : menuClip;
+
+        // ---------- Запасной вариант по StageOrder ----------
+        // Если stageKey по какой-то причине не заполнен,
+        // пытаемся определить группу по номеру этапа.
+        int order = preset.StageOrder;
+
+        if (order == 1 || order == 2)
+            return easyClip != null ? easyClip : menuClip;
+
+        if (order == 3 || order == 4)
+            return mediumClip != null ? mediumClip : menuClip;
+
+        if (order == 5 || order == 6)
+            return hardClip != null ? hardClip : menuClip;
+
+        if (order == 7 || order == 8)
+            return maxHardClip != null ? maxHardClip : menuClip;
+
+        // Самый последний fallback.
         return menuClip;
     }
 
     public void PlayWithCrossfade(AudioClip newClip)
     {
-        if (newClip == null) return;
+        if (newClip == null)
+            return;
 
-        // Если уже играет этот клип — ничего не делаем
         if (_activeSource.clip == newClip && _activeSource.isPlaying)
             return;
 
@@ -163,22 +195,22 @@ public class MusicManager : MonoBehaviour
         _fadeRoutine = null;
     }
 
-    // Опционально: чтобы потом сделать слайдер громкости
-    // Установить громкость музыки (0..1) и сохранить в PlayerPrefs
-    public void SetMasterVolume(float v)
+    public void SetMasterVolume(float value)
     {
-        masterVolume = Mathf.Clamp01(v); // Ограничиваем диапазон
-
-        // Применяем к текущему активному источнику
-        if (_activeSource != null)
-            _activeSource.volume = masterVolume;
-
-        // Сохраняем
+        masterVolume = Mathf.Clamp01(value);
         PlayerPrefs.SetFloat(MusicVolumeKey, masterVolume);
         PlayerPrefs.Save();
+
+        if (_a != null && _a.isPlaying && _a != _activeSource)
+            _a.volume = 0f;
+
+        if (_b != null && _b.isPlaying && _b != _activeSource)
+            _b.volume = 0f;
+
+        if (_activeSource != null)
+            _activeSource.volume = masterVolume;
     }
 
-    // Получить текущую громкость (удобно для выставления слайдера при открытии настроек)
     public float GetMasterVolume()
     {
         return masterVolume;

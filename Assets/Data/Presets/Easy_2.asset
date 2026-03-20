@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a13c9b66bacb4fd46bdb7df41233b3c6, type: 3}
+  m_Name: Easy_2
+  m_EditorClassIdentifier: Assembly-CSharp::QuizDifficultyPreset
+  stageKey: easy_2
+  stageOrder: 2
+  displayNameRu: "\u041B\u0451\u0433\u043A\u0438\u0439 2"
+  displayNameEn: Easy 2
+  presetName: Easy_2
+  questionsCount: 1
+  uniqueCorrectAnswers: 1
+  poolMode: 0
+  minId: 1
+  maxId: 110
+  maxDifficulty: 0
+  useTimer: 1
+  secondsPerQuestion: 15
+  previousStage: {fileID: 11400000, guid: 9487f6810a059f84b9ad245f6c67a615, type: 2}
+  perfectAchievementId: 1

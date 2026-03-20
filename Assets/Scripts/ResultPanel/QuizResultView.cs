@@ -49,7 +49,15 @@ public class QuizResultView : MonoBehaviour
     [SerializeField] private TMP_Text newPatchText;
     // Текст внутри этого блока
 
-    [SerializeField] private Image newPatchImage;
+    [Header("Time Info")]
+    [SerializeField] private TMP_Text currentTimeText;
+    // Текст текущего времени этапа.
+
+    [SerializeField] private TMP_Text bestTimeText;
+    // Текст лучшего времени этапа.
+
+    [SerializeField] private Image[] newPatchImages;
+
     // Картинка новой нашивки
 
     [Header("Animation")]
@@ -154,23 +162,7 @@ public class QuizResultView : MonoBehaviour
     }
 
     // Кнопка "Следующий уровень"
-    /*public void OnNextLevelPressed()
-    {
-        // Пытаемся выбрать следующий preset
-        bool switched = PresetProgression.TrySelectNextPreset();
-
-        // Если получилось — грузим GameScene
-        if (switched)
-        {
-            SceneManager.LoadScene(GameSessionSettings.GameSceneName);
-        }
-        else
-        {
-            // Если следующего уровня уже нет —
-            // просто уходим в меню
-            SceneManager.LoadScene(GameSessionSettings.MenuSceneName);
-        }
-    }*/
+ 
     public void OnNextLevelPressed()
     {
         // Если рекламный мост не найден -
@@ -214,10 +206,7 @@ public class QuizResultView : MonoBehaviour
     }
 
     // Кнопка "Переиграть"
-    /*public void OnRetryPressed()
-    {
-        SceneManager.LoadScene(GameSessionSettings.GameSceneName);
-    }*/
+    
     public void OnRetryPressed()
     {
         // Если рекламный мост не найден - просто перезагружаем уровень.
@@ -237,27 +226,67 @@ public class QuizResultView : MonoBehaviour
     }
 
     // Показ блока "Новая нашивка!"
-    public void ShowNewPatch(Sprite patchSprite)
+    public void ShowNewPatches(System.Collections.Generic.List<Sprite> patchSprites)
     {
-        if (newPatchRoot != null)
-            newPatchRoot.SetActive(patchSprite != null);
-
-        if (patchSprite == null)
+        // Если список пустой или null —
+        // скрываем блок новых нашивок.
+        if (patchSprites == null || patchSprites.Count == 0)
+        {
+            HideNewPatch();
             return;
+        }
+
+        // Показываем корневой блок.
+        if (newPatchRoot != null)
+            newPatchRoot.SetActive(true);
 
         bool en = LanguageService.UseEnglish;
 
+        // Если открылась одна нашивка — текст в единственном числе.
+        // Если несколько — во множественном.
         if (newPatchText != null)
-            newPatchText.text = en ? "New patch unlocked!" : "Новая нашивка!";
-
-        if (newPatchImage != null)
         {
-            newPatchImage.sprite = patchSprite;
-            newPatchImage.enabled = true;
-            newPatchImage.preserveAspect = true;
+            if (patchSprites.Count == 1)
+            {
+                newPatchText.text = en ? "New patch unlocked!" : "Новая нашивка!";
+            }
+            else
+            {
+                newPatchText.text = en ? "New patches unlocked!" : "Новые нашивки!";
+            }
         }
 
-        // Проигрываем pop-анимацию, если она назначена
+        // Если массив картинок не назначен — дальше продолжать бессмысленно.
+        if (newPatchImages == null || newPatchImages.Length == 0)
+        {
+            Debug.LogWarning("[QuizResultView] newPatchImages array is empty.");
+            return;
+        }
+
+        // Сначала скрываем все image-слоты.
+        for (int i = 0; i < newPatchImages.Length; i++)
+        {
+            if (newPatchImages[i] == null)
+                continue;
+
+            newPatchImages[i].enabled = false;
+        }
+
+        // Потом показываем столько картинок, сколько реально есть,
+        // но не больше длины массива.
+        int count = Mathf.Min(newPatchImages.Length, patchSprites.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (newPatchImages[i] == null)
+                continue;
+
+            newPatchImages[i].sprite = patchSprites[i];
+            newPatchImages[i].enabled = true;
+            newPatchImages[i].preserveAspect = true;
+        }
+
+        // Если назначен pop animator — проигрываем анимацию.
         if (newPatchPopAnimator != null)
             newPatchPopAnimator.Play();
     }
@@ -268,7 +297,51 @@ public class QuizResultView : MonoBehaviour
         if (newPatchRoot != null)
             newPatchRoot.SetActive(false);
 
-        if (newPatchImage != null)
-            newPatchImage.enabled = false;
+        if (newPatchImages != null)
+        {
+            for (int i = 0; i < newPatchImages.Length; i++)
+            {
+                if (newPatchImages[i] != null)
+                    newPatchImages[i].enabled = false;
+            }
+        }
+    }
+
+    // Этот метод показывает время текущего прохождения
+    // и лучшее время для этапа.
+    public void SetTimeInfo(float currentTimeSeconds, float bestTimeSeconds, bool english)
+    {
+        if (currentTimeText != null)
+        {
+            currentTimeText.text = english
+                ? $"Stage time: {FormatTime(currentTimeSeconds)}"
+                : $"Время этапа: {FormatTime(currentTimeSeconds)}";
+        }
+
+        if (bestTimeText != null)
+        {
+            if (bestTimeSeconds <= 0f)
+            {
+                bestTimeText.text = english
+                    ? "Best time: —"
+                    : "Лучшее время: —";
+            }
+            else
+            {
+                bestTimeText.text = english
+                    ? $"Best time: {FormatTime(bestTimeSeconds)}"
+                    : $"Лучшее время: {FormatTime(bestTimeSeconds)}";
+            }
+        }
+    }
+    private string FormatTime(float seconds)
+    {
+        seconds = Mathf.Max(0f, seconds);
+
+        int totalSeconds = Mathf.RoundToInt(seconds);
+        int minutes = totalSeconds / 60;
+        int secs = totalSeconds % 60;
+
+        return $"{minutes:00}:{secs:00}";
     }
 }

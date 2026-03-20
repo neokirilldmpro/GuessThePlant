@@ -26,6 +26,41 @@ public class QuizUIView : MonoBehaviour                                         
     [SerializeField] private Color correctColor = Color.green;                           // Цвет правильного
     [SerializeField] private Color wrongColor = Color.red;                               // Цвет неправильного
 
+    [Header("Timer UI")]
+    [SerializeField] private GameObject timerRoot;
+    // Корневой объект таймера.
+    // Его будем включать/выключать целиком.
+
+    [SerializeField] private TMP_Text timerText;
+    // Текст таймера.
+    // Например: "Время: 12"
+
+    [SerializeField] private Image timerFillImage;
+    // Необязательно.
+    // Если хочешь, это может быть полоска/круг прогресса таймера.
+    // Если не используешь — можно оставить пустым.
+
+    [SerializeField] private Color timerNormalColor = Color.white;
+    // Цвет таймера, когда времени ещё достаточно.
+
+    [SerializeField] private Color timerWarningColor = new Color(1f, 0.75f, 0.1f, 1f);
+    // Цвет, когда времени осталось мало.
+
+    [SerializeField] private Color timerCriticalColor = new Color(1f, 0.3f, 0.3f, 1f);
+    // Цвет, когда времени почти не осталось.
+
+    [Header("Time out message")]
+    [SerializeField] private GameObject timeExpiredRoot;
+    // Корневой объект сообщения "Время вышло!".
+    // Можно сделать отдельный текст или плашку.
+
+    [SerializeField] private TMP_Text timeExpiredText;
+    // Текст сообщения "Время вышло!".
+
+    [SerializeField] private string timeExpiredRu = "Время вышло!";
+    [SerializeField] private string timeExpiredEn = "Time is up!";
+    // Локализованные варианты текста.
+
     private Image[] _buttonImages;                                                       // Кеш Image компонентов кнопок
 
     public event Action<int> OptionClicked;                                              // Событие клика по варианту (индекс)
@@ -131,4 +166,84 @@ public class QuizUIView : MonoBehaviour                                         
         }
     }
 
-}                                                                                          // Конец класса
+    // Показать или скрыть таймер целиком.
+    public void SetTimerVisible(bool visible)
+    {
+        if (timerRoot != null)
+            timerRoot.SetActive(visible);
+
+        // Если таймер скрываем — можно заодно очистить текст.
+        if (!visible && timerText != null)
+            timerText.text = string.Empty;
+    }
+
+    // Обновить отображение таймера.
+    // remainingSeconds -> сколько секунд осталось
+    // totalSeconds     -> сколько было изначально на вопрос
+    // english          -> какой язык сейчас активен
+    public void UpdateTimerDisplay(float remainingSeconds, float totalSeconds, bool english)
+    {
+        // Защита от отрицательных значений.
+        remainingSeconds = Mathf.Max(0f, remainingSeconds);
+        totalSeconds = Mathf.Max(0.01f, totalSeconds);
+
+        // Для текста лучше показывать округление ВВЕРХ.
+        // Например 11.2 сек -> "12"
+        int shownSeconds = Mathf.CeilToInt(remainingSeconds);
+
+        if (timerText != null)
+        {
+            timerText.text = english
+                ? $"Time: {shownSeconds}"
+                : $"Время: {shownSeconds}";
+
+            // Меняем цвет текста в зависимости от остатка времени.
+            if (remainingSeconds <= 3f)
+                timerText.color = timerCriticalColor;
+            else if (remainingSeconds <= 5f)
+                timerText.color = timerWarningColor;
+            else
+                timerText.color = timerNormalColor;
+        }
+
+        // Если у тебя есть Image для fillAmount —
+        // обновляем и его.
+        if (timerFillImage != null)
+        {
+            timerFillImage.fillAmount = remainingSeconds / totalSeconds;
+        }
+    }
+    // Показать сообщение "Время вышло!".
+    /*public void ShowTimeExpiredMessage(bool english) 
+    {
+        if (timeExpiredRoot != null)
+            timeExpiredRoot.SetActive(true);
+
+        if (timeExpiredText != null)
+        {
+            timeExpiredText.text = english ? timeExpiredEn : timeExpiredRu;
+        }
+    }*/
+
+    // Показываем сообщение "Время вышло!"
+    // Вызывается из QuizGameController.HandleTimeExpired()
+    public void ShowTimeExpiredMessage()
+    {
+        if (timeExpiredRoot != null)
+            timeExpiredRoot.SetActive(true);
+
+        if (timeExpiredText != null)
+            timeExpiredText.text = LanguageService.UseEnglish
+                ? timeExpiredEn
+                : timeExpiredRu;
+    }
+
+   
+    // Скрываем сообщение "Время вышло!"
+    // Вызывается при показе нового вопроса
+    public void HideTimeExpiredMessage()
+    {
+        if (timeExpiredRoot != null)
+            timeExpiredRoot.SetActive(false);
+    }
+}                                                                                       

@@ -1,138 +1,202 @@
-// Подключаем пространство имён для корутин (IEnumerator)
 using System.Collections;
-
-// Подключаем List<T>
 using System.Collections.Generic;
-
-// Подключаем Unity API (MonoBehaviour, Debug, Random, WaitForSeconds и т.д.)
 using UnityEngine;
 
-// Этот компонент управляет игровым процессом викторины: генерирует вопросы,
-// показывает их через UI, принимает ответы, считает score/streak, завершает раунд.
+// Этот компонент управляет всей логикой раунда:
+// 1) генерирует вопросы,
+// 2) показывает их через UI,
+// 3) принимает ответы,
+// 4) считает score / streak,
+// 5) завершает этап,
+// 6) сохраняет результат через StageProgressService,
+// 7) выдаёт нашивки этапа и кампании,
+// 8) поддерживает таймер на timed-этапах.
 public class QuizGameController : MonoBehaviour
 {
-    // ===== ДАННЫЕ =====
+    // -------------------------
+    // ДАННЫЕ
+    // -------------------------
 
-    [Header("Data")] // Просто подпись в инспекторе Unity
-    [SerializeField] private FlowerDatabase database; // Ссылка на базу всех цветов (ScriptableObject)
-    [SerializeField] private QuizDifficultyPreset preset; // Ссылка на пресет сложности (ScriptableObject)
+    [Header("Data")]
+    [SerializeField] private FlowerDatabase database;
+    // База всех цветов.
 
-    // ===== UI =====
-
-    [Header("UI")] // Подпись в инспекторе
-    [SerializeField] private QuizUIView ui; // Ссылка на UI-скрипт, который показывает вопрос и кнопки
-
-    [SerializeField] private QuizResultView resultView;
-
-    // ===== НАСТРОЙКИ ПРОЦЕССА =====
-
-    [Header("Flow")] // Подпись в инспекторе
-    [SerializeField] private float revealDelaySeconds = 0.6f; // Сколько ждать после ответа перед следующим вопросом
-
-    // ===== ВНУТРЕННЕЕ СОСТОЯНИЕ =====
-
-    private List<FlowerQuestion> _questions; // Список сгенерированных вопросов текущего раунда
-    private int _currentIndex; // Индекс текущего вопроса (0..Count-1)
-    private int _score; // Сколько правильных ответов
-    private int _streak; // Серия правильных ответов подряд
-    private bool _inputLocked; // Блокировка ввода во время подсветки (чтобы не кликали 10 раз)
-
+    [SerializeField] private QuizDifficultyPreset preset;
+    // Preset текущего этапа.
 
     [SerializeField] private AchievementVisuals achievementVisuals;
+    // Спрайты нашивок.
 
-    // Awake вызывается до Start; тут удобно подписаться на события UI
+    // -------------------------
+    // UI
+    // -------------------------
+
+    [Header("UI")]
+    [SerializeField] private QuizUIView ui;
+    // Игровой UI.
+
+    [SerializeField] private QuizResultView resultView;
+    // ResultPanel.
+
+    // -------------------------
+    // НАСТРОЙКИ ЛОГИКИ
+    // -------------------------
+
+    [Header("Flow")]
+    [SerializeField] private float revealDelaySeconds = 0.6f;
+    // Задержка после ответа перед следующим вопросом.
+
+    [SerializeField] private int allowedMistakesToPass = 2;
+    // Сколько ошибок можно допустить, чтобы этап считался пройденным.
+
+    // -------------------------
+    // ВНУТРЕННЕЕ СОСТОЯНИЕ
+    // -------------------------
+
+    private List<FlowerQuestion> _questions;
+    private int _currentIndex;
+    private int _score;
+    private int _streak;
+    private bool _inputLocked;
+    private bool _roundActive;
+    private bool _resultAlreadyShown;
+    private float _elapsedStageTime;
+
+    // -------------------------
+    // СОСТОЯНИЕ ТАЙМЕРА
+    // -------------------------
+
+    private bool _timedStage;
+    // true = у текущего этапа включён таймер
+
+    private bool _questionTimerRunning;
+    // true = таймер текущего вопроса сейчас тикает
+
+    private float _questionTimeRemaining;
+    // Сколько секунд осталось на текущий вопрос
+
+    private float _questionTimeLimit;
+    // Полный лимит времени на текущий вопрос.
+    // Нужен для отображения fillAmount.
+
+    // -------------------------
+    // ПОДПИСКА НА UI
+    // -------------------------
+
     private void Awake()
     {
-        // Если ui назначен — подписываемся на событие клика по варианту
         if (ui != null)
             ui.OptionClicked += OnOptionClicked;
     }
 
-    // OnDestroy вызывается при удалении объекта/сцены; важно отписаться от событий
     private void OnDestroy()
     {
-        // Если ui назначен — отписываемся
         if (ui != null)
             ui.OptionClicked -= OnOptionClicked;
     }
 
-    // Start вызывается на старте сцены (после Awake)
+    // -------------------------
+    // UNITY ЖИЗНЕННЫЙ ЦИКЛ
+    // -------------------------
+
     private void Start()
     {
-        // Автостарт раунда (если хочешь запускать из меню — можно убрать и вызывать StartQuiz() вручную)
         StartQuiz();
     }
 
-    // Публичный метод: начать/перезапустить раунд
+    private void Update()
+    {
+        // Пока этап активен — копим общее время прохождения этапа.
+        if (_roundActive)
+            _elapsedStageTime += Time.deltaTime;
+
+        // Отдельно обрабатываем таймер текущего вопроса.
+        UpdateQuestionTimer();
+    }
+
+    // -------------------------
+    // СТАРТ ЭТАПА
+    // -------------------------
+
     public void StartQuiz()
     {
-
-        // Проверяем, что база назначена
         if (database == null)
         {
             Debug.LogError("[QuizGameController] Database is not assigned!");
             return;
         }
 
-        // Если в меню был выбран пресет — используем его.
-        // Это позволяет запускать GameScene из MenuScene.
+        // Если этап выбран в меню — используем его.
         if (GameSessionSettings.SelectedPreset != null)
-        {
             preset = GameSessionSettings.SelectedPreset;
-        }
 
-        // Проверяем, что пресет назначен
         if (preset == null)
         {
             Debug.LogError("[QuizGameController] Preset is not assigned!");
             return;
         }
 
-        // Проверяем, что UI назначен
         if (ui == null)
         {
             Debug.LogError("[QuizGameController] UI is not assigned!");
             return;
         }
 
-        // Сбрасываем состояние раунда
         _score = 0;
         _streak = 0;
         _currentIndex = 0;
         _inputLocked = false;
+        _resultAlreadyShown = false;
+        _elapsedStageTime = 0f;
+        _roundActive = true;
 
-        // Генерируем вопросы по базе и пресету
-        //_questions = FlowerQuestionGenerator.Generate(database, preset, optionsCount: 4);
-        _questions = FlowerQuestionGenerator.Generate(database, preset, LanguageService.UseEnglish, optionsCount: 4);
+        // Определяем, timed ли это этап.
+        _timedStage = preset.UseTimer;
 
-        // Если генератор вернул пусто — значит что-то не так с пулом/базой
+        // На всякий случай сразу прячем таймер,
+        // если этап обычный.
+        if (ui != null)
+            ui.SetTimerVisible(_timedStage);
+
+        _questions = FlowerQuestionGenerator.Generate(
+            database,
+            preset,
+            LanguageService.UseEnglish,
+            optionsCount: 4
+        );
+
         if (_questions == null || _questions.Count == 0)
         {
-            Debug.LogError("[QuizGameController] No questions generated. Check database content and preset settings.");
+            _roundActive = false;
+            Debug.LogError("[QuizGameController] No questions generated. Check database and preset.");
             return;
         }
 
-        // Показываем первый вопрос
+        if (resultView != null)
+            resultView.Hide();
+
         ShowCurrentQuestion();
-        if (resultView != null) resultView.Hide();
     }
 
-    // Показать текущий вопрос на UI
+    // -------------------------
+    // ПОКАЗ ТЕКУЩЕГО ВОПРОСА
+    // -------------------------
+
     private void ShowCurrentQuestion()
     {
-        // Если индекс вышел за список — значит раунд закончился
-        if (_currentIndex < 0 || _currentIndex >= _questions.Count)
+        // Если вопросы закончились — завершаем этап.
+        if (_questions == null || _currentIndex < 0 || _currentIndex >= _questions.Count)
         {
             FinishQuiz();
             return;
         }
 
-        // Берём текущий вопрос
         FlowerQuestion q = _questions[_currentIndex];
 
-        // Отдаём его в UI для отображения
-        // +1 делаем, потому что игроку приятнее видеть 1/20, а не 0/20
-        
+        // Каждый новый вопрос должен начинаться без сообщения "Время вышло!".
+        if (ui != null)
+            ui.HideTimeExpiredMessage();
+
         ui.ShowQuestion(
             q,
             currentIndex: _currentIndex + 1,
@@ -141,216 +205,372 @@ public class QuizGameController : MonoBehaviour
             streak: _streak,
             english: LanguageService.UseEnglish
         );
+
+        // Каждый раз, когда показываем новый вопрос,
+        // заново запускаем таймер, если этап timed.
+        StartQuestionTimerIfNeeded();
     }
 
-    // Обработчик клика по кнопке-ответу
-    private void OnOptionClicked(int chosenIndex)
+    // -------------------------
+    // ЛОГИКА ТАЙМЕРА
+    // -------------------------
+
+    private void StartQuestionTimerIfNeeded()
     {
-        // Если ввод заблокирован — игнорируем клик
+        // Если этап не timed — просто скрываем таймер.
+        if (!_timedStage)
+        {
+            _questionTimerRunning = false;
+
+            if (ui != null)
+                ui.SetTimerVisible(false);
+
+            return;
+        }
+
+        // Если в preset случайно поставили 0 или меньше —
+        // подстрахуемся, чтобы игра не ломалась.
+        _questionTimeLimit = Mathf.Max(0.1f, preset.SecondsPerQuestion);
+        _questionTimeRemaining = _questionTimeLimit;
+        _questionTimerRunning = true;
+
+        if (ui != null)
+        {
+            ui.SetTimerVisible(true);
+            ui.UpdateTimerDisplay(
+                _questionTimeRemaining,
+                _questionTimeLimit,
+                LanguageService.UseEnglish
+            );
+        }
+    }
+
+    private void StopQuestionTimer()
+    {
+        _questionTimerRunning = false;
+    }
+
+    private void UpdateQuestionTimer()
+    {
+        // Если таймер не нужен или не запущен — выходим.
+        if (!_timedStage)
+            return;
+
+        if (!_questionTimerRunning)
+            return;
+
+        // Пока идёт reveal / переход / popup — таймер не должен тикать.
         if (_inputLocked)
             return;
 
-        // Защита: если вопросов нет — тоже игнорируем
+        // Уменьшаем время.
+        _questionTimeRemaining -= Time.deltaTime;
+
+        // Если время закончилось — обрабатываем timeout.
+        if (_questionTimeRemaining <= 0f)
+        {
+            _questionTimeRemaining = 0f;
+
+            if (ui != null)
+            {
+                ui.UpdateTimerDisplay(
+                    _questionTimeRemaining,
+                    _questionTimeLimit,
+                    LanguageService.UseEnglish
+                );
+            }
+
+            HandleTimeExpired();
+            return;
+        }
+
+        // Обновляем UI таймера каждый кадр.
+        if (ui != null)
+        {
+            ui.UpdateTimerDisplay(
+                _questionTimeRemaining,
+                _questionTimeLimit,
+                LanguageService.UseEnglish
+            );
+        }
+    }
+
+    private void HandleTimeExpired()
+    {
+        // Если мы уже заблокировали ввод — повторно не заходим.
+        if (_inputLocked)
+            return;
+
+        // Если текущий индекс сломан — выходим.
+        if (_questions == null || _currentIndex < 0 || _currentIndex >= _questions.Count)
+            return;
+
+        FlowerQuestion q = _questions[_currentIndex];
+
+        // Время закончилось -> вопрос считается ошибкой.
+        _inputLocked = true;
+        _questionTimerRunning = false;
+        _streak = 0;
+
+        if (ui != null)
+        {
+            ui.SetInteractable(false);
+
+            // Каждый новый вопрос должен начинаться без сообщения "Время вышло!".
+            /*if (ui != null)
+                ui.HideTimeExpiredMessage();*/
+            if (ui != null)
+                ui.ShowTimeExpiredMessage(); // показываем "Время вышло!"
+
+            // Показываем правильный вариант,
+            // чтобы игрок видел верный ответ.
+            //ui.MarkCorrect(q.correctIndex);
+        }
+
+        if (SfxManager.Instance != null)
+            SfxManager.Instance.PlayWrong();
+
+        StartCoroutine(GoNextAfterDelay());
+    }
+
+    // -------------------------
+    // ОБРАБОТКА ОТВЕТА ИГРОКА
+    // -------------------------
+
+    private void OnOptionClicked(int chosenIndex)
+    {
+        if (_inputLocked)
+            return;
+
         if (_questions == null || _questions.Count == 0)
             return;
 
-        // Берём текущий вопрос
-        FlowerQuestion q = _questions[_currentIndex];
+        if (_currentIndex < 0 || _currentIndex >= _questions.Count)
+            return;
 
-        // Проверяем, правильный ли индекс выбрал игрок
+        FlowerQuestion q = _questions[_currentIndex];
         bool isCorrect = (chosenIndex == q.correctIndex);
 
-        // Блокируем ввод на время подсветки
         _inputLocked = true;
 
-        // Запрещаем кнопки (чтобы игрок не нажал ещё раз)
-        ui.SetInteractable(false);
+        // Как только игрок ответил —
+        // таймер этого вопроса больше не тикает.
+        StopQuestionTimer();
 
-        // Если ответ правильный
+        if (ui != null)
+            ui.SetInteractable(false);
+
         if (isCorrect)
         {
-            // Увеличиваем счёт
             _score++;
-
-            // Увеличиваем серию
             _streak++;
 
-            // Подсвечиваем выбранную кнопку как правильную
-            ui.MarkCorrect(chosenIndex);
+            if (ui != null)
+                ui.MarkCorrect(chosenIndex);
 
-            // SFX правильного ответа
             if (SfxManager.Instance != null)
                 SfxManager.Instance.PlayCorrect();
         }
-        else // Если ответ неправильный
+        else
         {
-            // Сбрасываем серию
             _streak = 0;
 
-            // Подсвечиваем выбранную кнопку красным
-            ui.MarkWrong(chosenIndex);
+            if (ui != null)
+                ui.MarkWrong(chosenIndex);
 
-            // Подсвечиваем правильную кнопку зелёным
-            //ui.MarkCorrect(q.correctIndex);
-
-            // SFX неправильного ответа
             if (SfxManager.Instance != null)
                 SfxManager.Instance.PlayWrong();
         }
 
-        // Запускаем корутину: подождать и перейти к следующему вопросу
         StartCoroutine(GoNextAfterDelay());
     }
 
-    // Корутинa ожидания (пауза перед следующим вопросом)
+    // -------------------------
+    // ПЕРЕХОД К СЛЕДУЮЩЕМУ ВОПРОСУ
+    // -------------------------
+
     private IEnumerator GoNextAfterDelay()
     {
-        // Берём задержку и защищаемся от отрицательных значений
         float delay = Mathf.Max(0f, revealDelaySeconds);
 
-        // Если задержка больше 0 — ждём
         if (delay > 0f)
             yield return new WaitForSeconds(delay);
 
-        // Переходим на следующий вопрос
         _currentIndex++;
-
-        // Разблокируем ввод
         _inputLocked = false;
 
-        // Показываем следующий вопрос (или завершаем)
         ShowCurrentQuestion();
     }
 
+    // -------------------------
+    // ЗАВЕРШЕНИЕ ЭТАПА
+    // -------------------------
+
     private void FinishQuiz()
     {
+        if (_resultAlreadyShown)
+            return;
+
+        _resultAlreadyShown = true;
+        _roundActive = false;
+        _questionTimerRunning = false;
+
+        if (ui != null)
+            ui.SetTimerVisible(false);
+
         int total = _questions != null ? _questions.Count : 0;
         int score = _score;
 
-        // Пройти уровень можно с ошибками <= 2
-        int allowedMistakes = 2;
-        int requiredScore = Mathf.Max(0, total - allowedMistakes);
+        int requiredScore = Mathf.Max(0, total - allowedMistakesToPass);
         bool passed = score >= requiredScore;
-
-        // Нашивка только за идеальное прохождение
         bool perfectRun = (score == total);
 
-        Sprite newPatchSprite = null;
+        float totalTimeSeconds = Mathf.Max(0f, _elapsedStageTime);
 
-        // 1) Сохраняем прогресс уровня
-        string modeName = (preset != null) ? preset.PresetName : "Unknown";
+        List<AchievementId> unlockedNow = new List<AchievementId>();
+        List<Sprite> newPatchSprites = new List<Sprite>();
 
-        int best = SimpleSaveService.LoadBestScore(modeName);
-        if (score > best)
-            SimpleSaveService.SaveBestScore(modeName, score);
+        // Сохраняем результат этапа.
+        StageProgressService.SaveStageResult(
+            preset,
+            score,
+            total,
+            totalTimeSeconds
+        );
 
-        if (passed)
-            SimpleSaveService.SaveCompleted(modeName, true);
-
-        // 2) Выдаём нашивку только без единой ошибки
+        // Если этап пройден идеально —
+        // выдаём нашивку именно этого этапа.
         if (perfectRun)
         {
-            AchievementId? id = GetAchievementIdForPreset(preset);
+            AchievementId stagePerfectAchievement = preset.PerfectAchievementId;
 
-            if (id.HasValue)
+            TryUnlockAchievement(
+                stagePerfectAchievement,
+                newPatchSprites,
+                unlockedNow
+            );
+        }
+
+        // Проверяем кампанию целиком.
+        QuizDifficultyPreset[] allStages = GameSessionSettings.GetAllCampaignStages();
+
+        if (allStages != null && allStages.Length > 0)
+        {
+            if (StageProgressService.AreAllCompleted(allStages))
             {
-                bool alreadyUnlocked = AchievementService.IsUnlocked(id.Value);
+                TryUnlockAchievement(
+                    AchievementId.CompleteCampaign,
+                    newPatchSprites,
+                    unlockedNow
+                );
+            }
 
-                if (!alreadyUnlocked)
-                {
-                    AchievementService.Unlock(id.Value);
-
-                    if (achievementVisuals != null)
-                        newPatchSprite = achievementVisuals.GetPatchSprite(id.Value);
-                }
+            if (StageProgressService.AreAllPerfect(allStages))
+            {
+                TryUnlockAchievement(
+                    AchievementId.PerfectCampaign,
+                    newPatchSprites,
+                    unlockedNow
+                );
             }
         }
 
-        // 3) Показываем результат
         if (ui != null)
             ui.SetInteractable(false);
 
         if (resultView != null)
         {
             resultView.Show(score, total, preset);
-            resultView.ShowNewPatch(newPatchSprite);
+            // После сохранения результата лучший результат уже обновлён,
+            // значит можно сразу показать и текущее, и лучшее время.
+            float bestTime = StageProgressService.GetBestTime(preset);
+
+            resultView.SetTimeInfo(totalTimeSeconds, bestTime, LanguageService.UseEnglish);
+
+            resultView.ShowNewPatches(newPatchSprites);
         }
 
+        string unlockedList = unlockedNow.Count > 0
+            ? string.Join(", ", unlockedNow)
+            : "none";
+
         Debug.Log(
-            $"[QuizGameController] Finished. Mode={modeName}, Score={score}/{total}, Passed={passed}, Perfect={perfectRun}, NewPatch={(newPatchSprite != null)}"
+            $"[QuizGameController] FinishQuiz -> StageKey={preset?.StageKey}, " +
+            $"StageOrder={preset?.StageOrder}, Score={score}/{total}, Passed={passed}, " +
+            $"Perfect={perfectRun}, TotalTime={totalTimeSeconds:F2}s, " +
+            $"UnlockedNow={unlockedList}, PopupCount={newPatchSprites.Count}"
         );
     }
-    private void UnlockAchievementForPreset(QuizDifficultyPreset p)
+
+    private bool TryUnlockAchievement(
+        AchievementId achievementId,
+        List<Sprite> newPatchSprites,
+        List<AchievementId> unlockedNow
+    )
     {
-        if (p == null) return;
+        bool unlockedRightNow = AchievementService.Unlock(achievementId);
 
-        string key = p.PresetName.Trim().ToLowerInvariant();
+        if (!unlockedRightNow)
+            return false;
 
-        if (key == "easy") AchievementService.Unlock(AchievementId.CompleteEasy);
-        else if (key == "medium") AchievementService.Unlock(AchievementId.CompleteMedium);
-        else if (key == "hard") AchievementService.Unlock(AchievementId.CompleteHard);
-        else if (key == "maxhard" || key == "max hard" || key == "max_hard") AchievementService.Unlock(AchievementId.CompleteMaxHard);
+        if (unlockedNow != null)
+            unlockedNow.Add(achievementId);
+
+        if (achievementVisuals == null)
+        {
+            Debug.LogWarning("[QuizGameController] AchievementVisuals is not assigned.");
+            return true;
+        }
+
+        Sprite sprite = achievementVisuals.GetPatchSprite(achievementId);
+
+        if (sprite == null)
+        {
+            Debug.LogWarning($"[QuizGameController] Sprite for achievement {achievementId} is not assigned in AchievementVisuals.");
+            return true;
+        }
+
+        if (newPatchSprites != null)
+            newPatchSprites.Add(sprite);
+
+        return true;
     }
 
-    private AchievementId? GetAchievementIdForPreset(QuizDifficultyPreset p)
-    {
-        if (p == null) return null;
-
-        string key = p.PresetName.Trim().ToLowerInvariant();
-
-        if (key == "easy") return AchievementId.CompleteEasy;
-        if (key == "medium") return AchievementId.CompleteMedium;
-        if (key == "hard") return AchievementId.CompleteHard;
-        if (key == "maxhard" || key == "max hard" || key == "max_hard") return AchievementId.CompleteMaxHard;
-
-        return null;
-    }
+    // -------------------------
+    // REWARDED: ПРАВИЛЬНЫЙ ОТВЕТ
+    // -------------------------
 
     public bool TryUseRewardedCorrectAnswer()
     {
-        // Если ввод уже заблокирован,
-        // значит либо игрок уже нажал ответ,
-        // либо сейчас идёт переход к следующему вопросу.
         if (_inputLocked)
             return false;
 
-        // Если вопросов нет - использовать награду нельзя.
         if (_questions == null || _questions.Count == 0)
             return false;
 
-        // Если индекс вопроса некорректный - тоже выходим.
         if (_currentIndex < 0 || _currentIndex >= _questions.Count)
             return false;
 
-        // Берём текущий вопрос.
         FlowerQuestion q = _questions[_currentIndex];
 
-        // На время обработки награды блокируем ввод.
         _inputLocked = true;
 
-        // Отключаем нажатия по вариантам ответа.
+        // Rewarded тоже должен останавливать таймер вопроса,
+        // иначе игрок терял бы время во время награды.
+        StopQuestionTimer();
+
         if (ui != null)
             ui.SetInteractable(false);
 
-        // Подсвечиваем правильный вариант.
-        // Для игрока это выглядит так:
-        // он посмотрел rewarded -> игра показала правильный ответ.
         if (ui != null)
             ui.MarkCorrect(q.correctIndex);
 
-        // Засчитываем это как правильный ответ.
         _score++;
-
-        // И увеличиваем streak,
-        // потому что с точки зрения результата ответ считается правильным.
         _streak++;
 
-        // Проигрываем "правильный" звук.
         if (SfxManager.Instance != null)
             SfxManager.Instance.PlayCorrect();
 
-        // Переходим к следующему вопросу после той же задержки,
-        // что и при обычном правильном ответе.
         StartCoroutine(GoNextAfterDelay());
 
         return true;

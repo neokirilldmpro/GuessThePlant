@@ -1,25 +1,49 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
+// Этот компонент управляет большим портфелем достижений.
+// Теперь он автоматически обновляется, когда открывается новая нашивка.
 public class PortfolioView : MonoBehaviour
 {
     [Header("Root")]
-    [SerializeField] private GameObject root; // PortfolioPanel
+    [SerializeField] private GameObject root;
 
-    [Header("Slots (same order as AchievementId enum)")]
-    [SerializeField] private Image[] slotImages; // 4 слота
+    [Header("Slots")]
+    [SerializeField] private Image[] slotImages;
+    // Сюда ставишь все слоты портфеля.
+    // В идеале их должно быть 10.
 
-    [Header("Patch Sprites")]
-    [SerializeField] private Sprite patchEasy;
-    [SerializeField] private Sprite patchMedium;
-    [SerializeField] private Sprite patchHard;
-    [SerializeField] private Sprite patchMaxHard;
+    [Header("Visual source")]
+    [SerializeField] private AchievementVisuals achievementVisuals;
+    // Единый источник спрайтов нашивок.
 
     [Header("Locked Appearance")]
     [SerializeField, Range(0f, 1f)] private float lockedAlpha = 0.25f;
 
-
     [SerializeField] private GameObject mainMenuPanel;
+
+    // Базовые спрайты пустых слотов, чтобы можно было вернуть их,
+    // если достижение ещё не открыто.
+    private Sprite[] _defaultSlotSprites;
+
+    private void Awake()
+    {
+        CacheDefaultSprites();
+    }
+
+    private void OnEnable()
+    {
+        // Подписываемся на событие открытия достижения.
+        AchievementService.AchievementUnlocked += OnAchievementUnlocked;
+
+        Refresh();
+    }
+
+    private void OnDisable()
+    {
+        AchievementService.AchievementUnlocked -= OnAchievementUnlocked;
+    }
 
     private void Start()
     {
@@ -27,51 +51,120 @@ public class PortfolioView : MonoBehaviour
         Refresh();
     }
 
+    private void CacheDefaultSprites()
+    {
+        if (slotImages == null)
+            return;
+
+        _defaultSlotSprites = new Sprite[slotImages.Length];
+
+        for (int i = 0; i < slotImages.Length; i++)
+        {
+            if (slotImages[i] != null)
+                _defaultSlotSprites[i] = slotImages[i].sprite;
+        }
+    }
+
+    private void OnAchievementUnlocked(AchievementId id)
+    {
+        // Как только открылась новая нашивка —
+        // сразу перерисовываем портфель.
+        Refresh();
+    }
+
     public void Show()
     {
-        if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
- 
-        if (root != null) root.SetActive(true);
+        if (mainMenuPanel != null)
+            mainMenuPanel.SetActive(false);
+
+        if (root != null)
+            root.SetActive(true);
+
         Refresh();
     }
 
     public void Hide()
     {
-        if (root != null) root.SetActive(false);
+        if (root != null)
+            root.SetActive(false);
 
-        if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
+        if (mainMenuPanel != null)
+            mainMenuPanel.SetActive(true);
     }
 
     public void Refresh()
     {
-        if (slotImages == null || slotImages.Length == 0) return;
+        if (slotImages == null || slotImages.Length == 0)
+            return;
 
-        ApplySlot(0, AchievementId.CompleteEasy, patchEasy);
-        ApplySlot(1, AchievementId.CompleteMedium, patchMedium);
-        ApplySlot(2, AchievementId.CompleteHard, patchHard);
-        ApplySlot(3, AchievementId.CompleteMaxHard, patchMaxHard);
+        if (achievementVisuals == null)
+        {
+            Debug.LogWarning("[PortfolioView] AchievementVisuals is not assigned.");
+            return;
+        }
+
+        AchievementId[] allIds = (AchievementId[])Enum.GetValues(typeof(AchievementId));
+
+        int count = Mathf.Min(slotImages.Length, allIds.Length);
+
+        for (int i = 0; i < count; i++)
+        {
+            ApplySlot(i, allIds[i]);
+        }
+
+        // Если слотов больше, чем достижений —
+        // лишние делаем пустыми.
+        for (int i = count; i < slotImages.Length; i++)
+        {
+            ResetSlotToDefault(i);
+        }
     }
 
-    private void ApplySlot(int index, AchievementId id, Sprite patch)
+    private void ApplySlot(int index, AchievementId id)
     {
-        if (index < 0 || index >= slotImages.Length) return;
+        if (index < 0 || index >= slotImages.Length)
+            return;
 
         Image img = slotImages[index];
-        if (img == null) return;
+        if (img == null)
+            return;
 
         bool unlocked = AchievementService.IsUnlocked(id);
+        Sprite patchSprite = achievementVisuals.GetPatchSprite(id);
 
-        // Если разблокировано — показываем нашивку
-        if (unlocked && patch != null)
+        if (unlocked && patchSprite != null)
         {
-            img.sprite = patch;
-            var c = img.color; c.a = 1f; img.color = c;
+            img.sprite = patchSprite;
+
+            Color c = img.color;
+            c.a = 1f;
+            img.color = c;
         }
         else
         {
-            // Если не разблокировано — либо пустой слот (sprite = null), либо “замок”
-            // Тут оставим sprite как есть, но сделаем полупрозрачным
-            var c = img.color; c.a = lockedAlpha; img.color = c;
+            if (_defaultSlotSprites != null && index < _defaultSlotSprites.Length)
+                img.sprite = _defaultSlotSprites[index];
+
+            Color c = img.color;
+            c.a = lockedAlpha;
+            img.color = c;
         }
+    }
+
+    private void ResetSlotToDefault(int index)
+    {
+        if (index < 0 || index >= slotImages.Length)
+            return;
+
+        Image img = slotImages[index];
+        if (img == null)
+            return;
+
+        if (_defaultSlotSprites != null && index < _defaultSlotSprites.Length)
+            img.sprite = _defaultSlotSprites[index];
+
+        Color c = img.color;
+        c.a = lockedAlpha;
+        img.color = c;
     }
 }

@@ -1,63 +1,69 @@
-/*Добавим маленький скрипт SelectedLevelLabel.cs, который:
-читает GameSessionSettings.SelectedPreset
-показывает текст в TMP_Text
-обновляется, когда открываешь меню обратно*/
-
-// Подключаем Unity API
+using TMPro;
 using UnityEngine;
 
-// Подключаем TextMeshPro
-using TMPro;
-
-// Скрипт для отображения выбранного уровня в главном меню.
-// Пример: "Выбран уровень: Средний"
+// Этот скрипт показывает в меню,
+// какой этап сейчас выбран.
+//
+// Раньше он локализовал старые строки типа Easy / Medium / Hard.
+// Теперь у каждого этапа есть собственное имя:
+// displayNameRu / displayNameEn
+//
+// Значит здесь больше не нужно угадывать название уровня по PresetName.
+// Мы просто берём красивое имя из самого preset.
 public class SelectedLevelLabel : MonoBehaviour
 {
-    [Header("UI")] // Заголовок в инспекторе
-    [SerializeField] private TMP_Text label; // Ссылка на TMP текст, куда будем писать строку
+    [Header("UI")]
+    [Tooltip("Ссылка на текст, куда будем писать строку.")]
+    [SerializeField] private TMP_Text label;
 
-    [Header("Fallback")] // Заголовок в инспекторе
-    [SerializeField] private string noSelectionTextRu = "Выбран уровень: не выбран"; // Текст, если уровень ещё не выбран
-    [SerializeField] private string noSelectionTextEn = "Selected level: not selected"; // EN-вариант (на будущее)
+    [Header("Texts")]
+    [SerializeField] private string noSelectionTextRu = "Выбран этап: не выбран";
+    [SerializeField] private string noSelectionTextEn = "Selected stage: not selected";
 
-    [Header("Language")] // Заголовок в инспекторе
-    [SerializeField] private bool useEnglish = false; // Язык подписи (пока можно оставить false)
+    [SerializeField] private string selectedPrefixRu = "Выбран этап: ";
+    [SerializeField] private string selectedPrefixEn = "Selected stage: ";
+    // Префикс, который будет добавляться перед названием этапа.
 
-    private void Start() // Unity вызывает при старте сцены
+    private void Start()
     {
-        Refresh(); // Обновляем текст при запуске
+        Refresh();
     }
 
-    private void OnEnable() // Unity вызывает при активации объекта
+    private void OnEnable()
     {
-        Refresh(); // Обновляем текст, когда панель/объект снова включается
+        Refresh();
     }
 
-    // Публичный метод обновления текста (можно вызывать из MainMenuController)
-
+    // Публичный метод, чтобы другие скрипты могли обновить подпись
+    // после смены этапа.
     public void Refresh()
     {
+        // Если текст не назначен — пишем предупреждение и выходим.
         if (label == null)
         {
-            Debug.LogWarning("[SelectedLevelLabel] Label TMP_Text is not assigned.");
+            Debug.LogWarning("[SelectedLevelLabel] TMP_Text label is not assigned.");
             return;
         }
 
-        QuizDifficultyPreset selected = GameSessionSettings.SelectedPreset;
-        bool useEnglish = LanguageService.UseEnglish; // Берём глобальный язык
+        // Смотрим текущий язык.
+        bool useEnglish = LanguageService.UseEnglish;
 
+        // Берём текущий выбранный preset.
+        QuizDifficultyPreset selected = GameSessionSettings.SelectedPreset;
+
+        // Если ничего не выбрано — показываем fallback-текст.
         if (selected == null)
         {
-            label.text = useEnglish ? "Selected level: not selected" : "Выбран уровень: не выбран";
+            label.text = useEnglish ? noSelectionTextEn : noSelectionTextRu;
             return;
         }
 
-        // Локализуем название уровня (Easy -> Лёгкий и т.д.)
-        string localizedLevelName = LevelNameLocalizer.LocalizePresetName(selected.PresetName, useEnglish);
+        // Берём красивое локализованное имя этапа прямо из preset.
+        string stageName = selected.GetDisplayName(useEnglish);
 
-        // Собираем итоговую строку
+        // Собираем финальную строку.
         label.text = useEnglish
-            ? $"Selected level: {localizedLevelName}"
-            : $"Выбран уровень: {localizedLevelName}";
+            ? selectedPrefixEn + stageName
+            : selectedPrefixRu + stageName;
     }
 }

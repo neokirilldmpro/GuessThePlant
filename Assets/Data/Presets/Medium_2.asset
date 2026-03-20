@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a13c9b66bacb4fd46bdb7df41233b3c6, type: 3}
+  m_Name: Medium_2
+  m_EditorClassIdentifier: Assembly-CSharp::QuizDifficultyPreset
+  stageKey: medium_2
+  stageOrder: 4
+  displayNameRu: "\u0421\u0440\u0435\u0434\u043D\u0438\u0439 2"
+  displayNameEn: Medium 2
+  presetName: Medium_2
+  questionsCount: 1
+  uniqueCorrectAnswers: 1
+  poolMode: 0
+  minId: 1
+  maxId: 110
+  maxDifficulty: 1
+  useTimer: 1
+  secondsPerQuestion: 6
+  previousStage: {fileID: 11400000, guid: b553a0539fe284d448a8cfc5c5467b34, type: 2}
+  perfectAchievementId: 3

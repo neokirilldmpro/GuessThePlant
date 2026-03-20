@@ -12,7 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b512edb91539d7941bd926e92ec7c261, type: 3}
   m_Name: AchievementVisuals
   m_EditorClassIdentifier: Assembly-CSharp::AchievementVisuals
-  patchEasy: {fileID: 21300000, guid: d4552d3d0d0f63c48a9fa0855a65b00c, type: 3}
-  patchMedium: {fileID: 21300000, guid: 5cf19f04cad60724a8dbb5945417f4e8, type: 3}
-  patchHard: {fileID: 21300000, guid: 1e4808062d232a647b8daade991c9920, type: 3}
-  patchMaxHard: {fileID: 21300000, guid: 9067668b88ea9f94b845c8a203deac15, type: 3}
+  patchPerfectEasy1: {fileID: 21300000, guid: d4552d3d0d0f63c48a9fa0855a65b00c, type: 3}
+  patchPerfectEasy2: {fileID: 21300000, guid: 5cf19f04cad60724a8dbb5945417f4e8, type: 3}
+  patchPerfectMedium1: {fileID: 21300000, guid: 1e4808062d232a647b8daade991c9920, type: 3}
+  patchPerfectMedium2: {fileID: 21300000, guid: 9067668b88ea9f94b845c8a203deac15, type: 3}
+  patchPerfectHard1: {fileID: 21300000, guid: 4995e2cf6d9ae654c8078d9427ab2e18, type: 3}
+  patchPerfectHard2: {fileID: 21300000, guid: 7b2b08643f284cf40ae2934f22e4bf19, type: 3}
+  patchPerfectExpert1: {fileID: 21300000, guid: 0d67f0e083ec20d4398bf5f9f67adfb6, type: 3}
+  patchPerfectExpert2: {fileID: 21300000, guid: 378522d2807c6f8489141a6d81e10051, type: 3}
+  patchCompleteCampaign: {fileID: 21300000, guid: a8b5cd6d51d8b7a479df0c3cd8ad862d, type: 3}
+  patchPerfectCampaign: {fileID: 21300000, guid: 9c679931a95b4cf4c97b820f805531b2, type: 3}

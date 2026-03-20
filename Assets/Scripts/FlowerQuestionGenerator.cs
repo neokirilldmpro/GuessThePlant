@@ -29,7 +29,7 @@ public static class FlowerQuestionGenerator                                     
 
         List<FlowerData> pool;                                                                     // Переменная для пула доступных цветков
 
-        if (preset.PoolMode == PoolMode.ByIdRange)                                                 // Если пул формируем по ID диапазону
+        if (preset.PoolMode == QuestionPoolMode.ByIdRange)                                                 // Если пул формируем по ID диапазону
         {                                                                                          // Начало ветки
             pool = database.GetPoolByIdRange(preset.MinId, preset.MaxId);                          // Берём пул по диапазону
         }                                                                                          // Конец ветки
