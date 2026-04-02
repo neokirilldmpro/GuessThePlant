@@ -437,6 +437,10 @@ public class QuizGameController : MonoBehaviour
             total,
             totalTimeSeconds
         );
+        // ќтправл€ем суммарное врем€ в лидерборд яндекса.
+        // ћетод сам проверит Ч все ли этапы пройдены.
+        // ≈сли нет Ч просто ничего не отправит.
+        LeaderboardService.Instance.SubmitTotalBestTime();
 
         // ≈сли этап пройден идеально Ч
         // выдаЄм нашивку именно этого этапа.
