@@ -17,7 +17,7 @@ MonoBehaviour:
   displayNameRu: "\u042D\u043A\u0441\u043F\u0435\u0440\u0442 1"
   displayNameEn: Expert 1
   presetName: MaxHard_1
-  questionsCount: 1
+  questionsCount: 5
   uniqueCorrectAnswers: 1
   poolMode: 0
   minId: 1

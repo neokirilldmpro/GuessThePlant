@@ -408,6 +408,19 @@ public class QuizGameController : MonoBehaviour
 
     private void FinishQuiz()
     {
+        // Добавь это в самое начало метода FinishQuiz()
+        if (OnlineMatchService.CurrentMatch != null && OnlineMatchService.CurrentMatch.IsOnlineMatch)
+        {
+            // Передаем результаты в онлайн-сервис
+            OnlineMatchService.FinishMatch(_score, _elapsedStageTime);
+
+            // Вместо обычного окна результатов показываем онлайн-окно
+            if (resultView != null)
+                resultView.ShowOnlineResult();
+
+            return; // Прекращаем выполнение метода, чтобы не сработала логика кампании
+        }
+
         if (_resultAlreadyShown)
             return;
 

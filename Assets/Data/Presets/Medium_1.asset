@@ -17,7 +17,7 @@ MonoBehaviour:
   displayNameRu: "\u0421\u0440\u0435\u0434\u043D\u0438\u0439 1"
   displayNameEn: Medium 1
   presetName: Medium_1
-  questionsCount: 1
+  questionsCount: 5
   uniqueCorrectAnswers: 1
   poolMode: 0
   minId: 1

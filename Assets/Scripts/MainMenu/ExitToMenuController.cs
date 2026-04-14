@@ -25,10 +25,16 @@ public class ExitToMenuController : MonoBehaviour
         ShowConfirm();
     }
 
-    // Нажатие "Да"
+    // Кнопка "Да" (подтверждение выхода в меню)
     public void OnConfirmYes()
     {
-        // Загружаем меню
+        // === ДОБАВЛЕНО: Сбрасываем онлайн-матч перед выходом ===
+        if (OnlineMatchService.CurrentMatch != null)
+        {
+            OnlineMatchService.ClearMatch();
+        }
+
+        // Загружаем сцену меню
         SceneManager.LoadScene(GameSessionSettings.MenuSceneName);
     }
 

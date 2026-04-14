@@ -17,7 +17,7 @@ MonoBehaviour:
   displayNameRu: "\u041B\u0451\u0433\u043A\u0438\u0439 1"
   displayNameEn: Easy 1
   presetName: Easy_1
-  questionsCount: 1
+  questionsCount: 5
   uniqueCorrectAnswers: 1
   poolMode: 0
   minId: 1

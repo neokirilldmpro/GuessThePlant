@@ -17,7 +17,7 @@ MonoBehaviour:
   displayNameRu: "\u0422\u044F\u0436\u0451\u043B\u044B\u0439 1"
   displayNameEn: Hard 1
   presetName: Hard_1
-  questionsCount: 1
+  questionsCount: 5
   uniqueCorrectAnswers: 1
   poolMode: 0
   minId: 1

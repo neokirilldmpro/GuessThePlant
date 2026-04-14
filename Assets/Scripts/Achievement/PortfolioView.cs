@@ -47,7 +47,6 @@ public class PortfolioView : MonoBehaviour
 
     private void Start()
     {
-        Hide();
         Refresh();
     }
 

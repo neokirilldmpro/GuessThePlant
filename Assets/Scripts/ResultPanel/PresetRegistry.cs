@@ -15,11 +15,18 @@ public class PresetRegistry : MonoBehaviour
              "Порядок в массиве не критичен,потому что RegisterCampaignPresets сам отсортирует их по StageOrder." +
              "Но для твоего удобства лучше сразу класть их по порядку:1, 2, 3, 4, 5, 6, 7, 8")]
     [SerializeField] private QuizDifficultyPreset[] campaignStages;
-    
+
+    // === НОВОЕ ПОЛЕ ===
+    [Header("Online Mode")]
+    [SerializeField] private QuizDifficultyPreset onlinePreset;
+
 
     private void Awake()
     {
         // Регистрируем все этапы в GameSessionSettings.
         GameSessionSettings.RegisterCampaignPresets(campaignStages);
+
+        // === ПЕРЕДАЕМ НАШ ОНЛАЙН ПРЕСЕТ В ГЛОБАЛЬНЫЕ НАСТРОЙКИ ===
+        GameSessionSettings.OnlinePreset = onlinePreset;
     }
 }

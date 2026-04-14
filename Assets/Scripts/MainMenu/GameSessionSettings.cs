@@ -32,6 +32,8 @@ public static class GameSessionSettings
 
     // Публичный метод регистрации этапов кампании.
     // Его будет вызывать PresetRegistry в меню.
+    // Добавляем ссылку на пресет для онлайна
+    public static QuizDifficultyPreset OnlinePreset;
     public static void RegisterCampaignPresets(QuizDifficultyPreset[] presets)
     {
         // Если в метод пришёл null — создаём пустой массив,
@@ -182,4 +184,17 @@ public static class GameSessionSettings
 
         return false;
     }
+
+    // Метод для активации онлайн-режима
+ /*   public static void SetOnlineMode(int count)
+    {
+        // Если есть хоть один пресет в базе 
+        if (_campaignStages != null && _campaignStages.Length > 0)
+        {
+            // Берем пресет "Medium" (индекс 2) как базу для баланса
+            SelectedPreset = _campaignStages[Mathf.Min(2, _campaignStages.Length - 1)];
+            // ВАЖНО: Твой QuizGameController сам возьмет 10 вопросов, 
+            // так как мы проверим флаг онлайн-матча.
+        }
+    }*/
 }
